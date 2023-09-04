@@ -119,13 +119,22 @@ fn one(p: &std::path::Path, tab: &[City], ext: &str) {
             .min_by_key(|x| dist(lat, lon, x.lat, x.lon) as i64)
             .unwrap();
         let v: Vec<&str> = date.split(' ').collect();
-        let lab = "label:".to_owned() + v[0] + "\n" + v[1] + "\n" + &r.city + "\n" + &r.country;
+        let lab = v[0].to_owned() + ", " + v[1] + ", " + &r.city + ", " + &r.country;
         println!("{}", lab);
-        let s = "./jpegs/".to_owned() + path;
+        let s = "./small/".to_owned() + path;
+        println!("{} {}", path,s);
+        println!(
+r#"<p class="center">
+<a href="{}" target="_blank">
+<img src="{}" alt="" />
+</a>
+{}
+</p>"#,path,s,lab);
         let status = std::process::Command::new("/usr/bin/convert")
             .args([
                 path,
-                "-resize 800x800",
+                "-resize",
+                "800x800",
                 &s
             ])
             .status()
@@ -146,7 +155,7 @@ fn main() {
     }
 */
 
-    let path = "./toto.jpg";
+    let path = "toto.jpg";
     let p = std::path::Path::new(path);
     one(p,&tab,"jpg");
 
