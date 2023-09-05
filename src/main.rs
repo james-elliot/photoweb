@@ -39,8 +39,8 @@ fn read_cities(file_path: &str) -> Vec<City> {
     }
     tab
 }
-
-fn get_latlon(path: &str) -> Option<(f64, f64, String)> {
+// https://www.google.com/maps/place/1%C2%B021'29.0%22N+103%C2%B059'14.0%22E
+fn get_latlon(path: &str) -> Option<(f64, f64, String,String)> {
     let file = std::fs::File::open(path).unwrap();
     let mut bufreader = std::io::BufReader::new(&file);
     let exifreader = exif::Reader::new();
@@ -48,18 +48,21 @@ fn get_latlon(path: &str) -> Option<(f64, f64, String)> {
     let mut lat = 0.;
     let mut lon = 0.;
     let mut s = "".to_string();
+    let mut g = "https://www.google.com/maps/place/".to_string();
     for f in exif.fields() {
         if let Some(t) = f.tag.description() {
             //		println!("{:?} {}",t,f.display_value().with_unit(&exif).to_string());
             if t.eq("Latitude") {
                 let s = f.display_value().with_unit(&exif).to_string();
                 let v: Vec<&str> = s.split(' ').collect();
+//		eprintln!("{:?}",v);
                 lat = v[0].parse::<f64>().unwrap()
                     + v[2].parse::<f64>().unwrap() / 60.
                     + v[4].parse::<f64>().unwrap() / 3600.;
                 if v[6].eq("S") {
                     lat = -lat;
                 }
+		g=g+v[0]+"%C2%B0"+v[2]+"'"+v[4]+"%22"+v[6];
             }
             if t.eq("Longitude") {
                 let s = f.display_value().with_unit(&exif).to_string();
@@ -70,6 +73,8 @@ fn get_latlon(path: &str) -> Option<(f64, f64, String)> {
                 if v[6].eq("W") {
                     lon = -lon;
                 }
+		g=g+"+"+v[0]+"%C2%B0"+v[2]+"'"+v[4]+"%22"+v[6];
+//		eprintln!("{:?}",g);
             }
             if t.eq("Date and time of original data generation") {
                 s = f.display_value().with_unit(&exif).to_string();
@@ -79,7 +84,7 @@ fn get_latlon(path: &str) -> Option<(f64, f64, String)> {
     if lat == 0. {
         return None;
     };
-    Some((lat, lon, s))
+    Some((lat, lon, s,g))
 }
 
 fn deg2rad(deg: f64) -> f64 {
@@ -101,36 +106,40 @@ fn one(p: &std::path::Path, tab: &[City], ext: &str) {
     let p2 = p.extension().and_then(std::ffi::OsStr::to_str);
     match p2 {
         None => {
-            println!("No name?");
+            eprintln!("No extension: {:?}",p);
             return
         },
         Some(s) => {
             let s2 = s.to_ascii_lowercase();
             if !s2.eq(ext) {
-                println!("Bad name? {} {}",s2,ext);
+                eprintln!("Bad name? {:?} {} {}",p,s2,ext);
                 return;
             }
         }
     }
     let path = p.to_str().unwrap();
-    if let Some((lat, lon, date)) = get_latlon(path) {
+    if let Some((lat, lon, date,g)) = get_latlon(path) {
         let r = tab
             .iter()
             .min_by_key(|x| dist(lat, lon, x.lat, x.lon) as i64)
             .unwrap();
         let v: Vec<&str> = date.split(' ').collect();
         let lab = v[0].to_owned() + ", " + v[1] + ", " + &r.city + ", " + &r.country;
-        println!("{}", lab);
         let s = "./small/".to_owned() + path;
-        println!("{} {}", path,s);
         println!(
 r#"<p class="center">
-<a href="{}" target="_blank">
-<img src="{}" alt="" />
+<a href="{path}" target="_blank">
+<img src="{s}" alt="" />
 </a>
-{}
-</p>"#,path,s,lab);
-        let status = std::process::Command::new("/usr/bin/convert")
+<br/>
+{lab}
+<a href="{g}" target="_blank">
+lat={lat:.6},lon={lon:.6}
+</a>
+</p>
+"#);
+	/*
+        let _status = std::process::Command::new("/usr/bin/convert")
             .args([
                 path,
                 "-resize",
@@ -138,25 +147,31 @@ r#"<p class="center">
                 &s
             ])
             .status()
-            .expect("failed to execute process");
-        println!("process resize finished with: {status}");
+        .expect("failed to execute process");
+	*/
+    }
+    else {
+	eprintln!("Error : no lat/lon for {path}");
     }
 }
 
 fn main() {
     let tab = read_cities("cities.csv");
-/*
-    for entry in walkdir::WalkDir::new("/mnt/home2/Photos/JMA/M9")
+
+    for entry in walkdir::WalkDir::new(".")
+	.max_depth(1)
+    //	.sort_by(|a,b| a.file_name().cmp(b.file_name()))
+	.sort_by_file_name()
         .into_iter()
         .filter_map(|e| e.ok())
     {
-        println!("{}", entry.path().display());
-        one(entry.path(), &tab, "dng");
+        eprintln!("{}", entry.path().display());
+        one(entry.path(), &tab, "jpg");
     }
-*/
 
+/*
     let path = "toto.jpg";
     let p = std::path::Path::new(path);
     one(p,&tab,"jpg");
-
+*/
 }
