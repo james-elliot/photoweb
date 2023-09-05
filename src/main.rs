@@ -155,9 +155,50 @@ lat={lat:.6},lon={lon:.6}
     }
 }
 
+fn print_header() {
+    println!(
+r#"
+<?xml version="1.0" encoding= "ISO-8859-1" ?>
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="fr" lang="fr">
+
+
+<head>
+<title>
+
+</title>
+<link rel="stylesheet" type="text/css" href="/mystyle.css" />
+</head>
+
+
+<body>
+<!--#include virtual="/header.shtml.fr" -->
+
+<h1>
+
+</h1>
+"#);
+}
+
+fn print_footer() {
+    println!(
+r#"
+<!--#include virtual="/footer.shtml.fr" -->
+<!-- Local Variables: -->
+<!-- coding: latin-1 -->
+</body>
+</html>
+"#);    
+}
+
 fn main() {
     let tab = read_cities("cities.csv");
-
+    print_header();
     for entry in walkdir::WalkDir::new(".")
 	.max_depth(1)
     //	.sort_by(|a,b| a.file_name().cmp(b.file_name()))
@@ -168,7 +209,7 @@ fn main() {
         eprintln!("{}", entry.path().display());
         one(entry.path(), &tab, "jpg");
     }
-
+    print_footer();
 /*
     let path = "toto.jpg";
     let p = std::path::Path::new(path);
