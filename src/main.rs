@@ -103,7 +103,7 @@ fn dist(lat1: f64, lon1: f64, lat2: f64, lon2: f64) -> f64 {
 
 use image::io::Reader as ImageReader;
 use image::imageops::resize as resize;
-use image::imageops::Gaussian as Gaussian;
+use image::imageops::CatmullRom as CatmullRom;
 use image::image_dimensions as image_dimensions;
 fn one(p: &std::path::Path, tab: &[City], ext: &str,bl:bool) {
     let _p1 = p.file_stem().and_then(std::ffi::OsStr::to_str);
@@ -151,7 +151,7 @@ lat={lat:.6},lon={lon:.6}
 			    match r.decode() {
 				Ok(img) => {
 				    let (nw,nh) = if w>h {(800,(h*800)/w)} else {((w*800)/h,800)};
-				    let imgres = resize(&img,nw,nh,Gaussian);
+				    let imgres = resize(&img,nw,nh,CatmullRom);
 				    match imgres.save(&s) {
 					Ok(_) => {},
 					Err(_e) => {eprintln!("Can't write image : {:?}",s);}
