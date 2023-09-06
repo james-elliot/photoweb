@@ -101,7 +101,7 @@ fn dist(lat1: f64, lon1: f64, lat2: f64, lon2: f64) -> f64 {
     r * c // Distance in km
 }
 
-fn one(p: &std::path::Path, tab: &[City], ext: &str) {
+fn one(p: &std::path::Path, tab: &[City], ext: &str,bl:bool) {
     let _p1 = p.file_stem().and_then(std::ffi::OsStr::to_str);
     let p2 = p.extension().and_then(std::ffi::OsStr::to_str);
     match p2 {
@@ -138,17 +138,17 @@ lat={lat:.6},lon={lon:.6}
 </a>
 </p>
 "#);
-	/*
-        let _status = std::process::Command::new("/usr/bin/convert")
-            .args([
-                path,
-                "-resize",
-                "800x800",
-                &s
-            ])
-            .status()
-        .expect("failed to execute process");
-	*/
+	if bl {
+            let _status = std::process::Command::new("/usr/bin/convert")
+		.args([
+                    path,
+                    "-resize",
+                    "800x800",
+                    &s
+		])
+		.status()
+		.expect("failed to execute process");
+	}
     }
     else {
 	eprintln!("Error : no lat/lon for {path}");
@@ -195,8 +195,16 @@ r#"
 </html>
 "#);    
 }
-
+use argparse::{ArgumentParser, StoreTrue};
 fn main() {
+    let mut bl = false; 
+    { // this block limits scope of borrows by ap.refer() method
+        let mut ap = ArgumentParser::new();
+        ap.set_description("Build web pages to display a collection of photographs");
+        ap.refer(&mut bl)
+            .add_option(&["-c","--convert"], StoreTrue,"Also convert images to 800x800 size");
+        ap.parse_args_or_exit();
+    }
     let tab = read_cities("cities.csv");
     print_header();
     for entry in walkdir::WalkDir::new(".")
@@ -207,7 +215,7 @@ fn main() {
         .filter_map(|e| e.ok())
     {
         eprintln!("{}", entry.path().display());
-        one(entry.path(), &tab, "jpg");
+        one(entry.path(), &tab, "jpg",bl);
     }
     print_footer();
 /*
