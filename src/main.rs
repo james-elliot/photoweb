@@ -37,18 +37,19 @@ fn read_cities(file_path: &str) -> Vec<City> {
     tab
 }
 // https://www.google.com/maps/place/1%C2%B021'29.0%22N+103%C2%B059'14.0%22E
-fn get_latlon(path: &str) -> Option<(f64, f64, String,String,String,String,String,String,String)> {
+fn get_latlon(path: &str) -> Option<(f64, f64, String,String,String,String,String,String,String,String)> {
     let file = std::fs::File::open(path).unwrap();
     let mut bufreader = std::io::BufReader::new(&file);
     let exifreader = exif::Reader::new();
     let exif = exifreader.read_from_container(&mut bufreader).unwrap();
     let (mut lat,mut lon) = (0.,0.);
 //    let (mut s,mut cam,mut exp,mut fnum,mut flen,mut lens) : (String,String,String,String,String,String);
-    let (mut s,mut cam,mut exp,mut fnum,mut flen,mut lens) =("".to_string(),"".to_string(),"".to_string(),"".to_string(),"".to_string(),"".to_string());
+    let (mut s,mut cam,mut exp,mut fnum,mut flen,mut lens,mut iso) =
+	("".to_string(),"".to_string(),"".to_string(),"".to_string(),"".to_string(),"".to_string(),"".to_string());
     let mut g = "https://www.google.com/maps/place/".to_string();
     for f in exif.fields() {
         if let Some(t) = f.tag.description() {
-//            		eprintln!("{:?} {}",t,f.display_value().with_unit(&exif).to_string());
+ //           		eprintln!("{:?} {}",t,f.display_value().with_unit(&exif).to_string());
             if t.eq("Latitude") {
                 let s = f.display_value().with_unit(&exif).to_string();
                 let v: Vec<&str> = s.split(' ').collect();
@@ -91,12 +92,15 @@ fn get_latlon(path: &str) -> Option<(f64, f64, String,String,String,String,Strin
             if t.eq("Lens model") {
                 lens = f.display_value().with_unit(&exif).to_string();
             }
+            if t.eq("Photographic sensitivity") {
+                iso = f.display_value().with_unit(&exif).to_string();
+            }
         }
     }
     if lat == 0. {
         return None;
     };
-    Some((lat, lon, s,g,cam,exp,fnum,flen,lens))
+    Some((lat, lon, s,g,cam,exp,fnum,flen,lens,iso))
 }
 
 fn deg2rad(deg: f64) -> f64 {
@@ -134,7 +138,7 @@ fn one(p: &std::path::Path, tab: &[City], ext: &str,bl:bool,mut fp1: &std::fs::F
         }
     }
     let path = p.to_str().unwrap();
-    if let Some((lat, lon, date,g,mut cam,exp,fnum,flen,mut lens)) = get_latlon(path) {
+    if let Some((lat, lon, date,g,mut cam,exp,fnum,flen,mut lens,iso)) = get_latlon(path) {
         let r = tab
             .iter()
             .min_by_key(|x| dist(lat, lon, x.lat, x.lon) as i64)
@@ -155,7 +159,7 @@ r#"<p class="center">
 lat={lat:.6}, lon={lon:.6}
 </a>
 <br/>
-{cam}, {lens}, {fnum}, {exp}, {flen}
+{cam}, {lens}, {fnum}, {exp}, {flen}, {iso} ISO
 </p>
 "#).expect("Can't write to file");
         write!(fp2,
@@ -169,7 +173,7 @@ r#"<p class="center">
 lat={lat:.6}, lon={lon:.6}
 </a>
 <br/>
-{cam}, {lens}, {fnum}, {exp}, {flen}
+{cam}, {lens}, {fnum}, {exp}, {flen}, {iso} ISO
 </p>
 "#).expect("Can't write to file");
 	if bl {
