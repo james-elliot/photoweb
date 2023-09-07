@@ -49,7 +49,7 @@ fn get_latlon(path: &str) -> Option<(f64, f64, String,String,String,String,Strin
     let mut g = "https://www.google.com/maps/place/".to_string();
     for f in exif.fields() {
         if let Some(t) = f.tag.description() {
- //           		eprintln!("{:?} {}",t,f.display_value().with_unit(&exif).to_string());
+//            		eprintln!("{:?} {}",t,f.display_value().with_unit(&exif).to_string());
             if t.eq("Latitude") {
                 let s = f.display_value().with_unit(&exif).to_string();
                 let v: Vec<&str> = s.split(' ').collect();
@@ -148,6 +148,7 @@ fn one(p: &std::path::Path, tab: &[City], ext: &str,bl:bool,mut fp1: &std::fs::F
         let s = "./small/".to_owned() + path;
 	cam.pop();cam.remove(0);
 	lens.pop();lens.remove(0);
+	let (w,h)=image_dimensions(path).expect("Can't get image dimensions");
         write!(fp1,
 r#"<p class="center">
 <a href="{path}" target="_blank">
@@ -159,7 +160,7 @@ r#"<p class="center">
 lat={lat:.6}, lon={lon:.6}
 </a>
 <br/>
-{cam}, {lens}, {fnum}, {exp}, {flen}, {iso} ISO
+{cam}, {lens}, {fnum}, {exp}, {flen}, {iso} ISO, {w}x{h}
 </p>
 "#).expect("Can't write to file");
         write!(fp2,
@@ -173,42 +174,15 @@ r#"<p class="center">
 lat={lat:.6}, lon={lon:.6}
 </a>
 <br/>
-{cam}, {lens}, {fnum}, {exp}, {flen}, {iso} ISO
+{cam}, {lens}, {fnum}, {exp}, {flen}, {iso} ISO, {w}x{h}
 </p>
 "#).expect("Can't write to file");
 	if bl {
-	    match image_dimensions(path) {
-		Err(_e) => {eprintln!("Can't get image dimensions: {:?}",path);},
-		Ok((w,h)) => {
-		    match ImageReader::open(path) {
-			Ok(r) => {
-			    match r.decode() {
-				Ok(img) => {
-				    let (nw,nh) = if w>h {(800,(h*800)/w)} else {((w*800)/h,800)};
-				    let imgres = resize(&img,nw,nh,CatmullRom);
-				    match imgres.save(&s) {
-					Ok(_) => {},
-					Err(_e) => {eprintln!("Can't write image : {:?}",s);}
-				    }
-				},
-				Err(_e) => {eprintln!("Can't decode image {:?}",path);}
-			    }
-			},
-			Err(_e) => {eprintln!("Can't open image {:?}",path);}
-		    }
-		}
-	    }
-	    /*
-            let _status = std::process::Command::new("/usr/bin/convert")
-		.args([
-                    path,
-                    "-resize",
-                    "800x800",
-                    &s
-		])
-		.status()
-	    .expect("failed to execute process");
-	     */
+	    let r = ImageReader::open(path).expect("Can't open image");
+	    let img= r.decode().expect("Can't decode image");
+	    let (nw,nh) = if w>h {(800,(h*800)/w)} else {((w*800)/h,800)};
+	    let imgres = resize(&img,nw,nh,CatmullRom);
+	    imgres.save(&s).expect("Can't save image");
 	}
     }
     else {
