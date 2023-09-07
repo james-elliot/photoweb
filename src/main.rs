@@ -1,8 +1,5 @@
 /*
-Dont forget!!!!!!!!!!!!!!!!!!!!!!!
-sudo mount -t tmpfs -o size=1g tmpfs /mnt/ramfs
 
-exiftool -geotag=Louisiane.gpx -geosync=+6:00:00 .
 */
 
 #[derive(Debug, serde::Deserialize)]
@@ -40,18 +37,18 @@ fn read_cities(file_path: &str) -> Vec<City> {
     tab
 }
 // https://www.google.com/maps/place/1%C2%B021'29.0%22N+103%C2%B059'14.0%22E
-fn get_latlon(path: &str) -> Option<(f64, f64, String,String)> {
+fn get_latlon(path: &str) -> Option<(f64, f64, String,String,String,String,String,String,String)> {
     let file = std::fs::File::open(path).unwrap();
     let mut bufreader = std::io::BufReader::new(&file);
     let exifreader = exif::Reader::new();
     let exif = exifreader.read_from_container(&mut bufreader).unwrap();
-    let mut lat = 0.;
-    let mut lon = 0.;
-    let mut s = "".to_string();
+    let (mut lat,mut lon) = (0.,0.);
+//    let (mut s,mut cam,mut exp,mut fnum,mut flen,mut lens) : (String,String,String,String,String,String);
+    let (mut s,mut cam,mut exp,mut fnum,mut flen,mut lens) =("".to_string(),"".to_string(),"".to_string(),"".to_string(),"".to_string(),"".to_string());
     let mut g = "https://www.google.com/maps/place/".to_string();
     for f in exif.fields() {
         if let Some(t) = f.tag.description() {
-            //		println!("{:?} {}",t,f.display_value().with_unit(&exif).to_string());
+//            		eprintln!("{:?} {}",t,f.display_value().with_unit(&exif).to_string());
             if t.eq("Latitude") {
                 let s = f.display_value().with_unit(&exif).to_string();
                 let v: Vec<&str> = s.split(' ').collect();
@@ -79,12 +76,27 @@ fn get_latlon(path: &str) -> Option<(f64, f64, String,String)> {
             if t.eq("Date and time of original data generation") {
                 s = f.display_value().with_unit(&exif).to_string();
             }
+            if t.eq("Model of image input equipment") {
+                cam = f.display_value().with_unit(&exif).to_string();
+            }
+            if t.eq("Exposure time") {
+                exp = f.display_value().with_unit(&exif).to_string();
+            }
+            if t.eq("F number") {
+                fnum = f.display_value().with_unit(&exif).to_string();
+            }
+            if t.eq("Lens focal length") {
+                flen = f.display_value().with_unit(&exif).to_string();
+            }
+            if t.eq("Lens model") {
+                lens = f.display_value().with_unit(&exif).to_string();
+            }
         }
     }
     if lat == 0. {
         return None;
     };
-    Some((lat, lon, s,g))
+    Some((lat, lon, s,g,cam,exp,fnum,flen,lens))
 }
 
 fn deg2rad(deg: f64) -> f64 {
@@ -105,7 +117,7 @@ use image::io::Reader as ImageReader;
 use image::imageops::resize as resize;
 use image::imageops::CatmullRom as CatmullRom;
 use image::image_dimensions as image_dimensions;
-fn one(p: &std::path::Path, tab: &[City], ext: &str,bl:bool) {
+fn one(p: &std::path::Path, tab: &[City], ext: &str,bl:bool,mut fp1: &std::fs::File,mut fp2: &std::fs::File) {
     let _p1 = p.file_stem().and_then(std::ffi::OsStr::to_str);
     let p2 = p.extension().and_then(std::ffi::OsStr::to_str);
     match p2 {
@@ -122,7 +134,7 @@ fn one(p: &std::path::Path, tab: &[City], ext: &str,bl:bool) {
         }
     }
     let path = p.to_str().unwrap();
-    if let Some((lat, lon, date,g)) = get_latlon(path) {
+    if let Some((lat, lon, date,g,mut cam,exp,fnum,flen,mut lens)) = get_latlon(path) {
         let r = tab
             .iter()
             .min_by_key(|x| dist(lat, lon, x.lat, x.lon) as i64)
@@ -130,7 +142,9 @@ fn one(p: &std::path::Path, tab: &[City], ext: &str,bl:bool) {
         let v: Vec<&str> = date.split(' ').collect();
         let lab = v[0].to_owned() + ", " + v[1] + ", " + &r.city + ", " + &r.country;
         let s = "./small/".to_owned() + path;
-        println!(
+	cam.pop();cam.remove(0);
+	lens.pop();lens.remove(0);
+        write!(fp1,
 r#"<p class="center">
 <a href="{path}" target="_blank">
 <img src="{s}" alt="" />
@@ -138,10 +152,26 @@ r#"<p class="center">
 <br/>
 {lab}
 <a href="{g}" target="_blank">
-lat={lat:.6},lon={lon:.6}
+lat={lat:.6}, lon={lon:.6}
 </a>
+<br/>
+{cam}, {lens}, {fnum}, {exp}, {flen}
 </p>
-"#);
+"#).expect("Can't write to file");
+        write!(fp2,
+r#"<p class="center">
+<a href="{path}" target="_blank">
+<img src="{s}" alt="" />
+</a>
+<br/>
+{lab}
+<a href="{g}" target="_blank">
+lat={lat:.6}, lon={lon:.6}
+</a>
+<br/>
+{cam}, {lens}, {fnum}, {exp}, {flen}
+</p>
+"#).expect("Can't write to file");
 	if bl {
 	    match image_dimensions(path) {
 		Err(_e) => {eprintln!("Can't get image dimensions: {:?}",path);},
@@ -182,10 +212,13 @@ lat={lat:.6},lon={lon:.6}
     }
 }
 
-fn print_header() {
-    println!(
-r#"
-<?xml version="1.0" encoding= "ISO-8859-1" ?>
+
+use std::fs::File;
+use std::io::Write;
+
+fn print_french_header(name:&str,mut fp: &std::fs::File) {
+    write!(fp,
+r#"<?xml version="1.0" encoding= "ISO-8859-1" ?>
 
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
 "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
@@ -197,7 +230,7 @@ r#"
 
 <head>
 <title>
-
+{name}
 </title>
 <link rel="stylesheet" type="text/css" href="/mystyle.css" />
 </head>
@@ -207,33 +240,90 @@ r#"
 <!--#include virtual="/header.shtml.fr" -->
 
 <h1>
-
+{name}
 </h1>
-"#);
+<p>
+En cliquant sur une image, elle s'ouvrira dans un autre onglet dans sa taille d'origine.
+<br/>
+Toutes les images sont copyrightees (voir le bas de page) et marquees par steganographie.
+</p>
+"#).expect("Can't write french header");
 }
 
-fn print_footer() {
-    println!(
+fn print_english_header(name:&str,mut fp: &std::fs::File) {
+    write!(fp,
+r#"<?xml version="1.0" encoding= "ISO-8859-1" ?>
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+
+
+<head>
+<title>
+{name}
+</title>
+<link rel="stylesheet" type="text/css" href="/mystyle.css" />
+</head>
+
+
+<body>
+<!--#include virtual="/header.shtml.en" -->
+
+<h1>
+{name}
+</h1>
+<p>
+Clicking on an image opens it in full size in another tab.
+<br/>
+All images are copyrighted (see footer) and steganographically watermarked.
+</p>
+"#).expect("Can't write english header");
+}
+
+fn print_french_footer(mut fp: &std::fs::File) {
+    write!(fp,
 r#"
 <!--#include virtual="/footer.shtml.fr" -->
 <!-- Local Variables: -->
 <!-- coding: latin-1 -->
 </body>
 </html>
-"#);    
+"#).expect("Can't write french footer");    
 }
-use argparse::{ArgumentParser, StoreTrue};
+
+fn print_english_footer(mut fp: &std::fs::File) {
+    write!(fp,
+r#"
+<!--#include virtual="/footer.shtml.en" -->
+<!-- Local Variables: -->
+<!-- coding: latin-1 -->
+</body>
+</html>
+"#).expect("Can't write english footer");    
+}
+use argparse::{ArgumentParser, StoreTrue,Store};
 fn main() {
-    let mut bl = false; 
+    let mut bl = false;
+    let mut name = "".to_string();
     { // this block limits scope of borrows by ap.refer() method
         let mut ap = ArgumentParser::new();
         ap.set_description("Build web pages to display a collection of photographs");
         ap.refer(&mut bl)
             .add_option(&["-c","--convert"], StoreTrue,"Also convert images to 800x800 size");
+	ap.refer(&mut name)
+            .add_option(&["-t","--title"], Store,
+                        "Title of the web page");
         ap.parse_args_or_exit();
     }
     let tab = read_cities("cities.csv");
-    print_header();
+    let output_fr = File::create("index.shtml.fr").expect("Can't open index.shtml.fr");
+    let output_en = File::create("index.shtml.en").expect("Can't open index.shtml.en");
+    print_french_header(&name,&output_fr);
+    print_english_header(&name,&output_en);
     for entry in walkdir::WalkDir::new(".")
 	.max_depth(1)
     //	.sort_by(|a,b| a.file_name().cmp(b.file_name()))
@@ -242,9 +332,10 @@ fn main() {
         .filter_map(|e| e.ok())
     {
         eprintln!("{}", entry.path().display());
-        one(entry.path(), &tab, "jpg",bl);
+        one(entry.path(), &tab, "jpg",bl,&output_fr,&output_en);
     }
-    print_footer();
+    print_french_footer(&output_fr);
+    print_english_footer(&output_en);
 /*
     let path = "toto.jpg";
     let p = std::path::Path::new(path);
