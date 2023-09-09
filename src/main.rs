@@ -37,15 +37,17 @@ fn read_cities(file_path: &str) -> Vec<City> {
     tab
 }
 // https://www.google.com/maps/place/1%C2%B021'29.0%22N+103%C2%B059'14.0%22E
-fn get_latlon(path: &str) -> Option<(f64, f64, String,String,String,String,String,String,String,String)> {
+fn get_latlon(path: &str,cam:&String,lens:&String) -> Option<(f64, f64, String,String,String,String,String,String,String,String)> {
     let file = std::fs::File::open(path).unwrap();
     let mut bufreader = std::io::BufReader::new(&file);
     let exifreader = exif::Reader::new();
     let exif = exifreader.read_from_container(&mut bufreader).unwrap();
     let (mut lat,mut lon) = (0.,0.);
 //    let (mut s,mut cam,mut exp,mut fnum,mut flen,mut lens) : (String,String,String,String,String,String);
-    let (mut s,mut cam,mut exp,mut fnum,mut flen,mut lens,mut iso) =
-	("".to_string(),"".to_string(),"".to_string(),"".to_string(),"".to_string(),"".to_string(),"".to_string());
+    let (mut s,mut exp,mut fnum,mut flen,mut iso) =
+	("".to_string(),"".to_string(),"".to_string(),"".to_string(),"".to_string());
+    let mut cam = cam.to_owned();
+    let mut lens = lens.to_owned();
     let mut g = "https://www.google.com/maps/place/".to_string();
     for f in exif.fields() {
         if let Some(t) = f.tag.description() {
@@ -79,6 +81,9 @@ fn get_latlon(path: &str) -> Option<(f64, f64, String,String,String,String,Strin
             }
             if t.eq("Model of image input equipment") {
                 cam = f.display_value().with_unit(&exif).to_string();
+		if cam.len()>2 {
+		    cam.pop();cam.remove(0);
+		}
             }
             if t.eq("Exposure time") {
                 exp = f.display_value().with_unit(&exif).to_string();
@@ -91,6 +96,9 @@ fn get_latlon(path: &str) -> Option<(f64, f64, String,String,String,String,Strin
             }
             if t.eq("Lens model") {
                 lens = f.display_value().with_unit(&exif).to_string();
+		if lens.len()>2 {
+		    lens.pop();lens.remove(0);
+		}
             }
             if t.eq("Photographic sensitivity") {
                 iso = f.display_value().with_unit(&exif).to_string();
@@ -121,7 +129,8 @@ use image::io::Reader as ImageReader;
 use image::imageops::resize as resize;
 use image::imageops::CatmullRom as CatmullRom;
 use image::image_dimensions as image_dimensions;
-fn one(p: &std::path::Path, tab: &[City], ext: &str,bl:bool,mut fp1: &std::fs::File,mut fp2: &std::fs::File) {
+fn one(p: &std::path::Path, tab: &[City], ext: &str,bl:bool,mut fp1: &std::fs::File,mut fp2: &std::fs::File,
+       cam:&String,lens:&String) {
     let _p1 = p.file_stem().and_then(std::ffi::OsStr::to_str);
     let p2 = p.extension().and_then(std::ffi::OsStr::to_str);
     match p2 {
@@ -138,7 +147,7 @@ fn one(p: &std::path::Path, tab: &[City], ext: &str,bl:bool,mut fp1: &std::fs::F
         }
     }
     let path = p.to_str().unwrap();
-    if let Some((lat, lon, date,g,mut cam,exp,fnum,flen,mut lens,iso)) = get_latlon(path) {
+    if let Some((lat, lon, date,g,cam,exp,fnum,flen,lens,iso)) = get_latlon(path,cam,lens) {
         let r = tab
             .iter()
             .min_by_key(|x| dist(lat, lon, x.lat, x.lon) as i64)
@@ -146,8 +155,6 @@ fn one(p: &std::path::Path, tab: &[City], ext: &str,bl:bool,mut fp1: &std::fs::F
         let v: Vec<&str> = date.split(' ').collect();
         let lab = v[0].to_owned() + ", " + v[1] + ", " + &r.city + ", " + &r.country;
         let s = "./small/".to_owned() + path;
-	cam.pop();cam.remove(0);
-	lens.pop();lens.remove(0);
 	let (w,h)=image_dimensions(path).expect("Can't get image dimensions");
         write!(fp1,
 r#"<p class="center">
@@ -287,11 +294,19 @@ use argparse::{ArgumentParser, StoreTrue,Store};
 fn main() {
     let mut bl = false;
     let mut name = "".to_string();
+    let mut cam = "".to_string();
+    let mut lens = "".to_string();
     { // this block limits scope of borrows by ap.refer() method
         let mut ap = ArgumentParser::new();
         ap.set_description("Build web pages to display a collection of photographs");
         ap.refer(&mut bl)
-            .add_option(&["-c","--convert"], StoreTrue,"Also convert images to 800x800 size");
+            .add_option(&["-r","--reduce"], StoreTrue,"Also create images of 800x800 size");
+	ap.refer(&mut cam)
+            .add_option(&["-c","--camera"], Store,
+                        "Name of camera");
+	ap.refer(&mut lens)
+            .add_option(&["-l","--lens"], Store,
+                        "Name of lens");
 	ap.refer(&mut name)
             .add_option(&["-t","--title"], Store,
                         "Title of the web page");
@@ -310,7 +325,7 @@ fn main() {
         .filter_map(|e| e.ok())
     {
         eprintln!("{}", entry.path().display());
-        one(entry.path(), &tab, "jpg",bl,&output_fr,&output_en);
+        one(entry.path(), &tab, "jpg",bl,&output_fr,&output_en,&cam,&lens);
     }
     print_french_footer(&output_fr);
     print_english_footer(&output_en);
