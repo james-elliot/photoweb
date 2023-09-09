@@ -1,7 +1,3 @@
-/*
-
-*/
-
 #[derive(Debug, serde::Deserialize)]
 #[allow(non_snake_case)]
 struct CityCsv {
@@ -37,17 +33,17 @@ fn read_cities(file_path: &str) -> Vec<City> {
     tab
 }
 // https://www.google.com/maps/place/1%C2%B021'29.0%22N+103%C2%B059'14.0%22E
-fn get_latlon(path: &str,cam:&String,lens:&String) -> Option<(f64, f64, String,String,String,String,String,String,String,String)> {
+fn get_latlon(path: &str,cam:&String,vlens:&Vec<&str>)
+              -> Option<(f64, f64, String,String,String,String,String,String,String,String)> {
     let file = std::fs::File::open(path).unwrap();
     let mut bufreader = std::io::BufReader::new(&file);
     let exifreader = exif::Reader::new();
     let exif = exifreader.read_from_container(&mut bufreader).unwrap();
     let (mut lat,mut lon) = (0.,0.);
 //    let (mut s,mut cam,mut exp,mut fnum,mut flen,mut lens) : (String,String,String,String,String,String);
-    let (mut s,mut exp,mut fnum,mut flen,mut iso) =
-	("".to_string(),"".to_string(),"".to_string(),"".to_string(),"".to_string());
+    let (mut s,mut exp,mut fnum,mut flen,mut iso,mut lens) =
+	("".to_string(),"".to_string(),"".to_string(),"".to_string(),"".to_string(),"".to_string());
     let mut cam = cam.to_owned();
-    let mut lens = lens.to_owned();
     let mut g = "https://www.google.com/maps/place/".to_string();
     for f in exif.fields() {
         if let Some(t) = f.tag.description() {
@@ -105,10 +101,39 @@ fn get_latlon(path: &str,cam:&String,lens:&String) -> Option<(f64, f64, String,S
             }
         }
     }
+    if (lens=="") && (flen!="") {
+	println!("lens={} flen={}",lens,flen);
+	let re = Regex::new(r"(?<fl>[0-9]*)").unwrap();
+	let fl_num:i32 = match re.captures(&flen) {
+	    Some(caps) => {caps["fl"].parse().unwrap()},
+	    None => {panic!("can't get flen");}
+	};
+	match vlens.len() {
+	    0 => {},
+	    1 => {lens = vlens[0].to_owned();},
+	    _ => {
+		let re = Regex::new(r"(?<low>[0-9]*)[ ]*-[ ]*(?<high>[0-9]*)").unwrap();
+		for hay in vlens {
+		    match re.captures(hay) {
+			Some(caps) => {
+			    let low: i32 = caps["low"].parse().unwrap();
+			    let high: i32 = caps["high"].parse().unwrap();
+			    println!("{} {}",low,high);
+			    if (fl_num>=low) && (fl_num<=high) {
+				lens=hay.to_string();
+				break;
+			    }
+			},
+			None => {}
+		    }
+		}
+	    }
+	}
+    }
     if lat == 0. {
         return None;
     };
-    Some((lat, lon, s,g,cam,exp,fnum,flen,lens,iso))
+    Some((lat,lon,s,g,cam,exp,fnum,flen,lens,iso))
 }
 
 fn deg2rad(deg: f64) -> f64 {
@@ -130,7 +155,7 @@ use image::imageops::resize as resize;
 use image::imageops::CatmullRom as CatmullRom;
 use image::image_dimensions as image_dimensions;
 fn one(p: &std::path::Path, tab: &[City], ext: &str,bl:bool,mut fp1: &std::fs::File,mut fp2: &std::fs::File,
-       cam:&String,lens:&String) {
+       cam:&String,vlens: &Vec<&str>) {
     let _p1 = p.file_stem().and_then(std::ffi::OsStr::to_str);
     let p2 = p.extension().and_then(std::ffi::OsStr::to_str);
     match p2 {
@@ -147,7 +172,7 @@ fn one(p: &std::path::Path, tab: &[City], ext: &str,bl:bool,mut fp1: &std::fs::F
         }
     }
     let path = p.to_str().unwrap();
-    if let Some((lat, lon, date,g,cam,exp,fnum,flen,lens,iso)) = get_latlon(path,cam,lens) {
+    if let Some((lat, lon, date,g,cam,exp,fnum,flen,lens,iso)) = get_latlon(path,cam,vlens) {
         let r = tab
             .iter()
             .min_by_key(|x| dist(lat, lon, x.lat, x.lon) as i64)
@@ -290,6 +315,8 @@ r#"
 </html>
 "#).expect("Can't write english footer");    
 }
+
+use regex::Regex;
 use argparse::{ArgumentParser, StoreTrue,Store};
 fn main() {
     let mut bl = false;
@@ -306,12 +333,13 @@ fn main() {
                         "Name of camera");
 	ap.refer(&mut lens)
             .add_option(&["-l","--lens"], Store,
-                        "Name of lens");
+                        "Name of lens(es)");
 	ap.refer(&mut name)
             .add_option(&["-t","--title"], Store,
                         "Title of the web page");
         ap.parse_args_or_exit();
     }
+    let vlens: Vec<&str> = lens.split(',').collect();
     let tab = read_cities("cities.csv");
     let output_fr = File::create("index.shtml.fr").expect("Can't open index.shtml.fr");
     let output_en = File::create("index.shtml.en").expect("Can't open index.shtml.en");
@@ -325,7 +353,7 @@ fn main() {
         .filter_map(|e| e.ok())
     {
         eprintln!("{}", entry.path().display());
-        one(entry.path(), &tab, "jpg",bl,&output_fr,&output_en,&cam,&lens);
+        one(entry.path(), &tab, "jpg",bl,&output_fr,&output_en,&cam,&vlens);
     }
     print_french_footer(&output_fr);
     print_english_footer(&output_en);
