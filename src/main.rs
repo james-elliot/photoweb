@@ -333,7 +333,7 @@ fn main() {
                         "Name of camera");
 	ap.refer(&mut lens)
             .add_option(&["-l","--lens"], Store,
-                        "Name of lens(es)");
+                        "Name of lens(es) separated by commas");
 	ap.refer(&mut name)
             .add_option(&["-t","--title"], Store,
                         "Title of the web page");
