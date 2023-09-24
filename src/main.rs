@@ -86,7 +86,9 @@ fn get_latlon(path: &str,cam:&String,vlens:&Vec<&str>)
                 exp = f.display_value().with_unit(&exif).to_string();
             }
             if t.eq("F number") {
-                fnum = f.display_value().with_unit(&exif).to_string();
+                let tmp = f.display_value().with_unit(&exif).to_string();
+		if tmp.len()>=6 {fnum = tmp[..6].to_string();}
+		else {fnum=tmp;}
             }
             if t.eq("Lens focal length") {
                 flen = f.display_value().with_unit(&exif).to_string();
