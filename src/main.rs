@@ -1,5 +1,55 @@
 #[derive(Debug, serde::Deserialize)]
 #[allow(non_snake_case)]
+struct LocCsv {
+    geonameid         : u64, //integer id of record in geonames database
+    name              : String, //name of geographical point (utf8) varchar(200)
+    asciiname         : String, //name of geographical point in plain ascii characters, varchar(200)
+    alternatenames    : String, //alternatenames, comma separated, ascii names automatically transliterated, convenience attribute from alternatename table, varchar(10000)
+    latitude          : f64, // latitude in decimal degrees (wgs84)
+    longitude         : f64, // longitude in decimal degrees (wgs84)
+    feature_class     : String, //see http://www.geonames.org/export/codes.html, char(1)
+    feature_code      : String, //see http://www.geonames.org/export/codes.html, varchar(10)
+    country_code      : String, //ISO-3166 2-letter country code, 2 characters
+    cc2               : String, //alternate country codes, comma separated, ISO-3166 2-letter country code, 200 characters
+    admin1_code       : String, //fipscode (subject to change to iso code), see exceptions below, see file admin1Codes.txt for display names of this code; varchar(20)
+    admin2_code       : String, //code for the second administrative division, a county in the US, see file admin2Codes.txt; varchar(80) 
+    admin3_code       : String, //code for third level administrative division, varchar(20)
+    admin4_code       : String, //code for fourth level administrative division, varchar(20)
+    population        : Option<i64>, //bigint (8 byte int) 
+    elevation         : Option<i64>, //in meters, integer
+    dem               : String, //digital elevation model, srtm3 or gtopo30, average elevation of 3''x3'' (ca 90mx90m) or 30''x30'' (ca 900mx900m) area in meters, integer. srtm processed by cgiar/ciat.
+    timezone          : String, //the iana timezone id (see file timeZone.txt) varchar(40)
+    modification_date : String // date of last modification in yyyy-MM-dd format
+}
+
+#[derive(Debug)]
+struct Loc {
+    location: String,
+    timezone: String,
+    lat: f64,
+    lon: f64,
+}
+
+fn read_locs(file_path: &str) -> Vec<Loc> {
+    let mut tab = Vec::new();
+    let file = std::fs::File::open(file_path).unwrap();
+    let mut rdr = csv::ReaderBuilder::new().delimiter(b'\t').from_reader(file);
+    for result in rdr.deserialize::<LocCsv>() {
+        let r = result.unwrap();
+        let lat = r.latitude;
+        let lon = r.longitude;
+        tab.push(Loc {
+            location: r.asciiname,
+            timezone: r.timezone,
+            lat,
+            lon,
+        });
+    }
+    tab
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[allow(non_snake_case)]
 struct CityCsv {
     ASCII_Name: String,
     Country_name: String,
@@ -154,7 +204,7 @@ use image::io::Reader as ImageReader;
 use image::imageops::resize as resize;
 use image::imageops::CatmullRom as CatmullRom;
 use image::image_dimensions as image_dimensions;
-fn one(p: &std::path::Path, tab: &[City], ext: &str,bl:bool,mut fp1: &std::fs::File,mut fp2: &std::fs::File,
+fn one(p: &std::path::Path, tab: &[City], tabloc: &Option<Vec<Loc>>, ext: &str,bl:bool,mut fp1: &std::fs::File,mut fp2: &std::fs::File,
        cam:&String,vlens: &Vec<&str>) {
     let _p1 = p.file_stem().and_then(std::ffi::OsStr::to_str);
     let p2 = p.extension().and_then(std::ffi::OsStr::to_str);
@@ -177,8 +227,13 @@ fn one(p: &std::path::Path, tab: &[City], ext: &str,bl:bool,mut fp1: &std::fs::F
             .iter()
             .min_by_key(|x| dist(lat, lon, x.lat, x.lon) as i64)
             .unwrap();
+        let rloc = tabloc.as_ref().map(|s|
+            s.iter()
+            .min_by_key(|x| dist(lat, lon, x.lat, x.lon) as i64)
+				       .unwrap());
+	let sloc = rloc.map_or("".to_string(),|s| s.location.to_string()+", ");
         let v: Vec<&str> = date.split(' ').collect();
-        let lab = v[0].to_owned() + ", " + v[1] + ", " + &r.city + ", " + &r.country;
+        let lab = v[0].to_owned() + ", " + v[1] + ", " + &sloc + &r.city + ", " + &r.country;
         let s = "./small/".to_owned() + path;
 	let (w,h)=image_dimensions(path).expect("Can't get image dimensions");
         write!(fp1,
@@ -320,6 +375,7 @@ use regex::Regex;
 use argparse::{ArgumentParser, StoreTrue,Store};
 fn main() {
     let mut bl = false;
+    let mut lc = false;
     let mut name = "".to_string();
     let mut cam = "".to_string();
     let mut lens = "".to_string();
@@ -328,6 +384,8 @@ fn main() {
         ap.set_description("Build web pages to display a collection of photographs");
         ap.refer(&mut bl)
             .add_option(&["-r","--reduce"], StoreTrue,"Also create images of 800x800 size");
+        ap.refer(&mut lc)
+            .add_option(&["-g","--geonames"], StoreTrue,"Also use geonames");
 	ap.refer(&mut cam)
             .add_option(&["-c","--camera"], Store,
                         "Name of camera");
@@ -341,6 +399,8 @@ fn main() {
     }
     let vlens: Vec<&str> = lens.split(',').collect();
     let tab = read_cities("cities.csv");
+    let tabloc =
+	if lc {let v = read_locs("locs.csv"); Some(v)} else {None};
     let output_fr = File::create("index.shtml.fr").expect("Can't open index.shtml.fr");
     let output_en = File::create("index.shtml.en").expect("Can't open index.shtml.en");
     print_french_header(&name,&output_fr);
@@ -353,7 +413,7 @@ fn main() {
         .filter_map(|e| e.ok())
     {
         eprintln!("{}", entry.path().display());
-        one(entry.path(), &tab, "jpg",bl,&output_fr,&output_en,&cam,&vlens);
+        one(entry.path(), &tab, &tabloc, "jpg",bl,&output_fr,&output_en,&cam,&vlens);
     }
     print_french_footer(&output_fr);
     print_english_footer(&output_en);
