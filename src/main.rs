@@ -1,25 +1,25 @@
 #[derive(Debug, serde::Deserialize)]
 #[allow(non_snake_case)]
 struct LocCsv {
-    _geonameid         : u64, //integer id of record in geonames database
-    _name              : String, //name of geographical point (utf8) varchar(200)
+    geonameid         : u64, //integer id of record in geonames database
+    name              : String, //name of geographical point (utf8) varchar(200)
     asciiname         : String, //name of geographical point in plain ascii characters, varchar(200)
-    _alternatenames    : String, //alternatenames, comma separated, ascii names automatically transliterated, convenience attribute from alternatename table, varchar(10000)
+    alternatenames    : String, //alternatenames, comma separated, ascii names automatically transliterated, convenience attribute from alternatename table, varchar(10000)
     latitude          : f64, // latitude in decimal degrees (wgs84)
     longitude         : f64, // longitude in decimal degrees (wgs84)
-    _feature_class     : String, //see http://www.geonames.org/export/codes.html, char(1)
-    _feature_code      : String, //see http://www.geonames.org/export/codes.html, varchar(10)
-    _country_code      : String, //ISO-3166 2-letter country code, 2 characters
-    _cc2               : String, //alternate country codes, comma separated, ISO-3166 2-letter country code, 200 characters
-    _admin1_code       : String, //fipscode (subject to change to iso code), see exceptions below, see file admin1Codes.txt for display names of this code; varchar(20)
-    _admin2_code       : String, //code for the second administrative division, a county in the US, see file admin2Codes.txt; varchar(80) 
-    _admin3_code       : String, //code for third level administrative division, varchar(20)
-    _admin4_code       : String, //code for fourth level administrative division, varchar(20)
-    _population        : Option<i64>, //bigint (8 byte int) 
-    _elevation         : Option<i64>, //in meters, integer
-    _dem               : String, //digital elevation model, srtm3 or gtopo30, average elevation of 3''x3'' (ca 90mx90m) or 30''x30'' (ca 900mx900m) area in meters, integer. srtm processed by cgiar/ciat.
+    feature_class     : String, //see http://www.geonames.org/export/codes.html, char(1)
+    feature_code      : String, //see http://www.geonames.org/export/codes.html, varchar(10)
+    country_code      : String, //ISO-3166 2-letter country code, 2 characters
+    cc2               : String, //alternate country codes, comma separated, ISO-3166 2-letter country code, 200 characters
+    admin1_code       : String, //fipscode (subject to change to iso code), see exceptions below, see file admin1Codes.txt for display names of this code; varchar(20)
+    admin2_code       : String, //code for the second administrative division, a county in the US, see file admin2Codes.txt; varchar(80) 
+    admin3_code       : String, //code for third level administrative division, varchar(20)
+    admin4_code       : String, //code for fourth level administrative division, varchar(20)
+    population        : Option<i64>, //bigint (8 byte int) 
+    elevation         : Option<i64>, //in meters, integer
+    dem               : String, //digital elevation model, srtm3 or gtopo30, average elevation of 3''x3'' (ca 90mx90m) or 30''x30'' (ca 900mx900m) area in meters, integer. srtm processed by cgiar/ciat.
     timezone          : String, //the iana timezone id (see file timeZone.txt) varchar(40)
-    _modification_date : String // date of last modification in yyyy-MM-dd format
+    modification_date : String // date of last modification in yyyy-MM-dd format
 }
 
 #[derive(Debug)]
