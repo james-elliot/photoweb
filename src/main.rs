@@ -1,5 +1,6 @@
 #[derive(Debug, serde::Deserialize)]
 #[allow(non_snake_case)]
+#[allow(dead_code)]
 struct LocCsv {
     geonameid         : u64, //integer id of record in geonames database
     name              : String, //name of geographical point (utf8) varchar(200)
@@ -311,6 +312,7 @@ r#", {iso} ISO, {w}x{h}
 
 use std::fs::File;
 use std::io::Write;
+use std::fs;
 
 fn print_french_header(name:&str,mut fp: &std::fs::File) {
     write!(fp,
@@ -344,6 +346,11 @@ En cliquant sur une image, elle s'ouvrira dans un autre onglet dans sa taille d'
 Toutes les images sont copyrightees (voir le bas de page) et marquees par steganographie.
 </p>
 "#).expect("Can't write french header");
+/* notes-fr.txt must be in ISO-8859-1 format, so no way to read it as a string */
+    match fs::read("notes-fr.txt") {
+	Ok(bytes) => fp.write_all(&bytes).expect("Can't write french notes"),
+	Err(e) => println!("error reading french notes: {e:?}"),
+    }
 }
 
 fn print_english_header(name:&str,mut fp: &std::fs::File) {
@@ -378,6 +385,11 @@ Clicking on an image opens it in full size in another tab.
 All images are copyrighted (see footer) and steganographically watermarked.
 </p>
 "#).expect("Can't write english header");
+/* notes-en.txt must be in ISO-8859-1 format, so no way to read it as a string */
+    match fs::read("notes-en.txt") {
+	Ok(bytes) => fp.write_all(&bytes).expect("Can't write english notes"),
+	Err(e) => println!("error reading english notes: {e:?}"),
+    }
 }
 
 fn print_french_footer(mut fp: &std::fs::File) {
