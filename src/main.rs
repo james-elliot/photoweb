@@ -220,9 +220,6 @@ fn dist(lat1: f64, lon1: f64, lat2: f64, lon2: f64) -> f64 {
     r * c // Distance in km
 }
 
-use image::io::Reader as ImageReader;
-use image::imageops::resize as resize;
-use image::imageops::CatmullRom as CatmullRom;
 use image::image_dimensions as image_dimensions;
 fn one(p: &std::path::Path, tab: &[City], tabloc: &Option<Vec<Loc>>, ext: &str,bl:bool,mut fp1: &std::fs::File,mut fp2: &std::fs::File,
        cam:&String,vlens: &Vec<&str>,output_dir:&str) {
@@ -295,14 +292,30 @@ lat={lat:.6}, lon={lon:.6}
 r#", {iso} ISO, {w}x{h}
 </p>
 "#).expect("Can't write to file");
-
+	if bl {
+	    let status = std::process::Command::new("/usr/bin/convert")
+		.args([
+                    "-resize",
+                    "800x800",
+                    &path,
+                    &s,
+		])
+		.status()
+		.expect("failed to execute process convert");
+            if !status.success() {
+		eprintln!("process convert finished with status {} for file {:?}",status,p);
+		return;
+	    }
+	}
+	/*
 	if bl {
 	    let r = ImageReader::open(path).expect("Can't open image");
 	    let img= r.decode().expect("Can't decode image");
 	    let (nw,nh) = if w>h {(800,(h*800)/w)} else {((w*800)/h,800)};
 	    let imgres = resize(&img,nw,nh,CatmullRom);
 	    imgres.save(&s).expect("Can't save image");
-	}
+    }
+	*/
     }
     else {
 	eprintln!("Error : no lat/lon for {path}");
