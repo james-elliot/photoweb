@@ -225,7 +225,7 @@ use image::imageops::resize as resize;
 use image::imageops::CatmullRom as CatmullRom;
 use image::image_dimensions as image_dimensions;
 fn one(p: &std::path::Path, tab: &[City], tabloc: &Option<Vec<Loc>>, ext: &str,bl:bool,mut fp1: &std::fs::File,mut fp2: &std::fs::File,
-       cam:&String,vlens: &Vec<&str>) {
+       cam:&String,vlens: &Vec<&str>,output_dir:&str) {
     let _p1 = p.file_stem().and_then(std::ffi::OsStr::to_str);
     let p2 = p.extension().and_then(std::ffi::OsStr::to_str);
     match p2 {
@@ -254,7 +254,7 @@ fn one(p: &std::path::Path, tab: &[City], tabloc: &Option<Vec<Loc>>, ext: &str,b
 	let sloc = rloc.map_or("".to_string(),|s| s.location.to_string()+", ");
         let v: Vec<&str> = date.split(' ').collect();
         let lab = v[0].to_owned() + ", " + v[1] + ", " + &sloc + &r.city + ", " + &r.country;
-        let s = "./small/".to_owned() + path;
+        let s = output_dir.to_owned() + "/" + path;
 	let (w,h)=image_dimensions(path).expect("Can't get image dimensions");
         write!(fp1,
 r#"<p class="center">
@@ -418,32 +418,42 @@ use regex::Regex;
 use argparse::{ArgumentParser, StoreTrue,Store};
 fn main() {
     let mut bl = false;
-    let mut lc = false;
     let mut name = "".to_string();
     let mut cam = "".to_string();
     let mut lens = "".to_string();
+    let mut cities = "./cities.csv".to_string();
+    let mut locs = "".to_string();
+    let mut output_dir = "./small".to_string();
     { // this block limits scope of borrows by ap.refer() method
         let mut ap = ArgumentParser::new();
         ap.set_description("Build web pages to display a collection of photographs");
-        ap.refer(&mut bl)
-            .add_option(&["-r","--reduce"], StoreTrue,"Also create images of 800x800 size");
-        ap.refer(&mut lc)
-            .add_option(&["-g","--geonames"], StoreTrue,"Also use geonames");
+        ap.refer(&mut locs)
+            .add_option(&["-g","--geonames"], Store,
+			"Name of geonames file (default \"\", do not use)");
 	ap.refer(&mut cam)
-            .add_option(&["-c","--camera"], Store,
+            .add_option(&["-C","--camera"], Store,
                         "Name of camera");
 	ap.refer(&mut lens)
-            .add_option(&["-l","--lens"], Store,
+            .add_option(&["-L","--lens"], Store,
                         "Name of lens(es) separated by commas");
 	ap.refer(&mut name)
             .add_option(&["-t","--title"], Store,
                         "Title of the web page");
+	ap.refer(&mut cities)
+            .add_option(&["-c","--cities"], Store,
+			"Path of file holding cities names (default ./cities.csv)");
+	ap.refer(&mut bl)
+            .add_option(&["-r","--reduce"], StoreTrue,
+			"Also create images of 800x800 size");
+	ap.refer(&mut output_dir)
+            .add_option(&["-o","--output"], Store,
+			"Name of output directory for 800x800 images (default ./small)");
         ap.parse_args_or_exit();
     }
     let vlens: Vec<&str> = lens.split(',').collect();
-    let tab = read_cities("cities.csv");
+    let tab = read_cities(&cities);
     let tabloc =
-	if lc {let v = read_locs("locs.csv"); Some(v)} else {None};
+	if  !locs.eq("") {let v = read_locs(&locs); Some(v)} else {None};
     let output_fr = File::create("index.shtml.fr").expect("Can't open index.shtml.fr");
     let output_en = File::create("index.shtml.en").expect("Can't open index.shtml.en");
     print_french_header(&name,&output_fr);
@@ -456,7 +466,7 @@ fn main() {
         .filter_map(|e| e.ok())
     {
         eprintln!("{}", entry.path().display());
-        one(entry.path(), &tab, &tabloc, "jpg",bl,&output_fr,&output_en,&cam,&vlens);
+        one(entry.path(), &tab, &tabloc, "jpg",bl,&output_fr,&output_en,&cam,&vlens,&output_dir);
     }
     print_french_footer(&output_fr);
     print_english_footer(&output_en);
