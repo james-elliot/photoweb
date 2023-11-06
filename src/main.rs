@@ -316,7 +316,7 @@ use std::fs;
 
 fn print_french_header(name:&str,mut fp: &std::fs::File) {
     write!(fp,
-r#"<?xml version="1.0" encoding= "ISO-8859-1" ?>
+r#"<?xml version="1.0" encoding="iso-8859-1" ?>
 
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
 "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
@@ -341,7 +341,7 @@ r#"<?xml version="1.0" encoding= "ISO-8859-1" ?>
 {name}
 </h1>
 <p>
-En cliquant sur une image, elle s'ouvrira dans un autre onglet dans sa taille d'origine.
+En cliquant sur une image, elle s'ouvrira dans un autre onglet en 3000x2000.
 <br/>
 Toutes les images sont copyrightees (voir le bas de page) et marquees par steganographie.
 </p>
@@ -355,7 +355,7 @@ Toutes les images sont copyrightees (voir le bas de page) et marquees par stegan
 
 fn print_english_header(name:&str,mut fp: &std::fs::File) {
     write!(fp,
-r#"<?xml version="1.0" encoding= "ISO-8859-1" ?>
+r#"<?xml version="1.0" encoding="iso-8859-1" ?>
 
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
 "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
@@ -380,7 +380,7 @@ r#"<?xml version="1.0" encoding= "ISO-8859-1" ?>
 {name}
 </h1>
 <p>
-Clicking on an image opens it in full size in another tab.
+Clicking on an image opens it in 3000x2000 in another tab.
 <br/>
 All images are copyrighted (see footer) and steganographically watermarked.
 </p>
