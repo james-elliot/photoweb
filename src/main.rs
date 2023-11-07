@@ -481,8 +481,7 @@ fn main() {
     }
     let vlens: Vec<&str> = lens.split(',').collect();
     let tab = read_cities(&cities);
-    let tabloc =
-	if  !locs.eq("") {let v = read_locs(&locs); Some(v)} else {None};
+    let tabloc = if  !locs.eq("") {let v = read_locs(&locs); Some(v)} else {None};
     let output_fr = File::create("index.shtml.fr").expect("Can't open index.shtml.fr");
     let output_en = File::create("index.shtml.en").expect("Can't open index.shtml.en");
     print_french_header(&name,&output_fr);
