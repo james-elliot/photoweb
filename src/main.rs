@@ -221,8 +221,9 @@ fn dist(lat1: f64, lon1: f64, lat2: f64, lon2: f64) -> f64 {
 }
 
 use image::image_dimensions as image_dimensions;
-fn one(p: &std::path::Path, tab: &[City], tabloc: &Option<Vec<Loc>>, ext: &str,bl:bool,mut fp1: &std::fs::File,mut fp2: &std::fs::File,
-       cam:&String,vlens: &Vec<&str>,output_dir:&str) {
+fn one(p: &std::path::Path, tab: &[City], tabloc: &Option<Vec<Loc>>, ext: &str,do_s:bool,
+       do_m:bool,mut fp1: &std::fs::File,mut fp2: &std::fs::File,cam:&String,vlens: &Vec<&str>,
+       output_dirs:&str,output_dirm:&str) {
     let _p1 = p.file_stem().and_then(std::ffi::OsStr::to_str);
     let p2 = p.extension().and_then(std::ffi::OsStr::to_str);
     match p2 {
@@ -251,12 +252,13 @@ fn one(p: &std::path::Path, tab: &[City], tabloc: &Option<Vec<Loc>>, ext: &str,b
 	let sloc = rloc.map_or("".to_string(),|s| s.location.to_string()+", ");
         let v: Vec<&str> = date.split(' ').collect();
         let lab = v[0].to_owned() + ", " + v[1] + ", " + &sloc + &r.city + ", " + &r.country;
-        let s = output_dir.to_owned() + "/" + path;
+        let s_small = output_dirs.to_owned() + "/" + path;
+	let s_medium = output_dirm.to_owned() + "/" + path;
 	let (w,h)=image_dimensions(path).expect("Can't get image dimensions");
         write!(fp1,
 r#"<p class="center">
-<a href="{path}" target="_blank">
-<img src="{s}" alt="" />
+<a href="{s_medium}" target="_blank">
+<img src="{s_small}" alt="" />
 </a>
 <br/>
 {lab}
@@ -275,8 +277,8 @@ r#", {iso} ISO, {w}x{h}
 
         write!(fp2,
 r#"<p class="center">
-<a href="{path}" target="_blank">
-<img src="{s}" alt="" />
+<a href="{s_medium}" target="_blank">
+<img src="{s_small}" alt="" />
 </a>
 <br/>
 {lab}
@@ -292,13 +294,13 @@ lat={lat:.6}, lon={lon:.6}
 r#", {iso} ISO, {w}x{h}
 </p>
 "#).expect("Can't write to file");
-	if bl {
+	if do_s {
 	    let status = std::process::Command::new("/usr/bin/convert")
 		.args([
                     "-resize",
                     "800x800",
                     &path,
-                    &s,
+                    &s_small,
 		])
 		.status()
 		.expect("failed to execute process convert");
@@ -307,15 +309,21 @@ r#", {iso} ISO, {w}x{h}
 		return;
 	    }
 	}
-	/*
-	if bl {
-	    let r = ImageReader::open(path).expect("Can't open image");
-	    let img= r.decode().expect("Can't decode image");
-	    let (nw,nh) = if w>h {(800,(h*800)/w)} else {((w*800)/h,800)};
-	    let imgres = resize(&img,nw,nh,CatmullRom);
-	    imgres.save(&s).expect("Can't save image");
-    }
-	*/
+	if do_m {
+	    let status = std::process::Command::new("/usr/bin/convert")
+		.args([
+                    "-resize",
+                    "3000x3000",
+                    &path,
+                    &s_medium,
+		])
+		.status()
+		.expect("failed to execute process convert");
+            if !status.success() {
+		eprintln!("process convert finished with status {} for file {:?}",status,p);
+		return;
+	    }
+	}
     }
     else {
 	eprintln!("Error : no lat/lon for {path}");
@@ -430,13 +438,15 @@ r#"
 use regex::Regex;
 use argparse::{ArgumentParser, StoreTrue,Store};
 fn main() {
-    let mut bl = false;
+    let mut do_s = false;
+    let mut do_m = false;
     let mut name = "".to_string();
     let mut cam = "".to_string();
     let mut lens = "".to_string();
     let mut cities = "./cities.csv".to_string();
     let mut locs = "".to_string();
-    let mut output_dir = "./small".to_string();
+    let mut output_dirs = "./small".to_string();
+    let mut output_dirm = "./medium".to_string();
     { // this block limits scope of borrows by ap.refer() method
         let mut ap = ArgumentParser::new();
         ap.set_description("Build web pages to display a collection of photographs");
@@ -455,12 +465,18 @@ fn main() {
 	ap.refer(&mut cities)
             .add_option(&["-c","--cities"], Store,
 			"Path of file holding cities names (default ./cities.csv)");
-	ap.refer(&mut bl)
-            .add_option(&["-r","--reduce"], StoreTrue,
+	ap.refer(&mut do_s)
+            .add_option(&["-s","--small"], StoreTrue,
 			"Also create images of 800x800 size");
-	ap.refer(&mut output_dir)
-            .add_option(&["-o","--output"], Store,
+	ap.refer(&mut output_dirs)
+            .add_option(&["-S","--smalldir"], Store,
 			"Name of output directory for 800x800 images (default ./small)");
+	ap.refer(&mut do_m)
+            .add_option(&["-m","--medium"], StoreTrue,
+			"Also create images of 3000x3000 size");
+	ap.refer(&mut output_dirm)
+            .add_option(&["-M","--mediumdir"], Store,
+			"Name of output directory for 3000x3000 images (default ./medium)");
         ap.parse_args_or_exit();
     }
     let vlens: Vec<&str> = lens.split(',').collect();
@@ -479,7 +495,7 @@ fn main() {
         .filter_map(|e| e.ok())
     {
         eprintln!("{}", entry.path().display());
-        one(entry.path(), &tab, &tabloc, "jpg",bl,&output_fr,&output_en,&cam,&vlens,&output_dir);
+        one(entry.path(), &tab, &tabloc, "jpg",do_s,do_m,&output_fr,&output_en,&cam,&vlens,&output_dirs,&output_dirm);
     }
     print_french_footer(&output_fr);
     print_english_footer(&output_en);
