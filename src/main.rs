@@ -444,15 +444,19 @@ fn main() {
     let mut cam = "".to_string();
     let mut lens = "".to_string();
     let mut cities = "./cities.csv".to_string();
-    let mut locs = "".to_string();
+    let mut do_g = false;
+    let mut locs = "./locs.csv".to_string();
     let mut output_dirs = "./small".to_string();
     let mut output_dirm = "./medium".to_string();
     { // this block limits scope of borrows by ap.refer() method
         let mut ap = ArgumentParser::new();
         ap.set_description("Build web pages to display a collection of photographs");
+	ap.refer(&mut do_g)
+            .add_option(&["-g","--geonames"], StoreTrue,
+			"Use also full geonames file");
         ap.refer(&mut locs)
-            .add_option(&["-g","--geonames"], Store,
-			"Name of geonames file (default \"\", do not use)");
+            .add_option(&["-G","--geonamesfile"], Store,
+			"Name of geonames file (default ./locs.csv)");
 	ap.refer(&mut cam)
             .add_option(&["-C","--camera"], Store,
                         "Name of camera");
@@ -481,7 +485,7 @@ fn main() {
     }
     let vlens: Vec<&str> = lens.split(',').collect();
     let tab = read_cities(&cities);
-    let tabloc = if  !locs.eq("") {let v = read_locs(&locs); Some(v)} else {None};
+    let tabloc = if  do_g {let v = read_locs(&locs); Some(v)} else {None};
     let output_fr = File::create("index.shtml.fr").expect("Can't open index.shtml.fr");
     let output_en = File::create("index.shtml.en").expect("Can't open index.shtml.en");
     print_french_header(&name,&output_fr);
