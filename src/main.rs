@@ -85,7 +85,7 @@ fn read_cities(file_path: &str) -> Vec<City> {
 }
 // https://www.google.com/maps/place/1%C2%B021'29.0%22N+103%C2%B059'14.0%22E
 fn get_latlon(path: &str,cam:&String,vlens:&Vec<&str>)
-              -> Option<(f64, f64, String,String,String,String,String,String,String,String,String)> {
+              -> (Option<(f64, f64)>, String,String,String,String,String,String,String,String,String) {
     let file = std::fs::File::open(path).unwrap();
     let mut bufreader = std::io::BufReader::new(&file);
     let exifreader = exif::Reader::new();
@@ -201,9 +201,9 @@ fn get_latlon(path: &str,cam:&String,vlens:&Vec<&str>)
 	}
     }
     if lat == 0. {
-        return None;
+        return (None,s,g,cam,exp,fnum,flen,lens,iso,eqlen)
     };
-    Some((lat,lon,s,g,cam,exp,fnum,flen,lens,iso,eqlen))
+    return (Some ((lat,lon)),s,g,cam,exp,fnum,flen,lens,iso,eqlen)
 }
 
 fn deg2rad(deg: f64) -> f64 {
@@ -240,95 +240,128 @@ fn one(p: &std::path::Path, tab: &[City], tabloc: &Option<Vec<Loc>>, ext: &str,d
         }
     }
     let path = p.to_str().unwrap();
-    if let Some((lat, lon, date,g,cam,exp,fnum,flen,lens,iso,eqlen)) = get_latlon(path,cam,vlens) {
-        let r = tab
-            .iter()
-            .min_by_key(|x| dist(lat, lon, x.lat, x.lon) as i64)
-            .unwrap();
-        let rloc = tabloc.as_ref().map(|s|
-            s.iter()
-            .min_by_key(|x| dist(lat, lon, x.lat, x.lon) as i64)
-				       .unwrap());
-	let sloc = rloc.map_or("".to_string(),|s| s.location.to_string()+", ");
-        let v: Vec<&str> = date.split(' ').collect();
-        let lab = v[0].to_owned() + ", " + v[1] + ", " + &sloc + &r.city + ", " + &r.country;
-        let s_small = output_dirs.to_owned() + "/" + path;
-	let s_medium = output_dirm.to_owned() + "/" + path;
-	let (w,h)=image_dimensions(path).expect("Can't get image dimensions");
-        write!(fp1,
+    let (latlon, date,g,cam,exp,fnum,flen,lens,iso,eqlen) = get_latlon(path,cam,vlens);
+    let sloc = match latlon {
+	Some((lat,lon)) => {
+	    let r = tab
+		.iter()
+		.min_by_key(|x| dist(lat, lon, x.lat, x.lon) as i64)
+		.unwrap();
+	    let rloc = tabloc.as_ref().map(|s|
+					   s.iter()
+					   .min_by_key(|x| dist(lat, lon, x.lat, x.lon) as i64)
+					   .unwrap());
+	    let rloc = rloc.map_or("".to_string(),|s| s.location.to_string()+", ");
+	    rloc + &r.city + ", " + &r.country
+	},
+	None => {
+	    "".to_string()
+	}
+    };
+    let v: Vec<&str> = date.split(' ').collect();
+    let lab = v[0].to_owned() + ", " + v[1] + ", " + &sloc;
+    let s_small = output_dirs.to_owned() + "/" + path;
+    let s_medium = output_dirm.to_owned() + "/" + path;
+    let (w,h)=image_dimensions(path).expect("Can't get image dimensions");
+    
+    write!(fp1,
 r#"<p class="center">
 <a href="{s_medium}" target="_blank">
 <img src="{s_small}" alt="" />
 </a>
 <br/>
 {lab}
-<a href="{g}" target="_blank">
+"#).expect("Can't write to file");
+
+    match latlon {
+	Some((lat,lon)) => {
+	    write!(fp1,
+r#"<a href="{g}" target="_blank">
 lat={lat:.6}, lon={lon:.6}
 </a>
 <br/>
-{cam}, {lens}, {fnum}, {exp}, {flen}"#).expect("Can't write to file");
-	if !eqlen.is_empty() {
-	    write!(fp1," (35mm equ: {eqlen})").expect("Can't write to file");
-	}
-        write!(fp1,
+"#) .expect("Can't write to file");
+	},
+	None => {}
+    };
+    
+   write!(fp1,
+r#"{cam}, {lens}, {fnum}, {exp}, {flen}"#).expect("Can't write to file");
+    if !eqlen.is_empty() {
+	write!(fp1," (35mm equ: {eqlen})").expect("Can't write to file");
+    }
+    
+    write!(fp1,
 r#", {iso} ISO, {w}x{h}
 </p>
 "#).expect("Can't write to file");
 
-        write!(fp2,
+    write!(fp2,
 r#"<p class="center">
 <a href="{s_medium}" target="_blank">
 <img src="{s_small}" alt="" />
 </a>
 <br/>
 {lab}
-<a href="{g}" target="_blank">
+"#).expect("Can't write to file");
+
+    match latlon {
+	Some((lat,lon)) => {
+	    write!(fp2,
+r#"<a href="{g}" target="_blank">
 lat={lat:.6}, lon={lon:.6}
 </a>
 <br/>
-{cam}, {lens}, {fnum}, {exp}, {flen}"#).expect("Can't write to file");
-	if !eqlen.is_empty() {
-	    write!(fp2," (35mm equ: {eqlen})").expect("Can't write to file");
-	}
-        write!(fp2,
+"#) .expect("Can't write to file");
+	},
+	None => {}
+    };
+    
+   write!(fp2,
+r#"{cam}, {lens}, {fnum}, {exp}, {flen}"#).expect("Can't write to file");
+    if !eqlen.is_empty() {
+	write!(fp2," (35mm equ: {eqlen})").expect("Can't write to file");
+    }
+    
+    write!(fp2,
 r#", {iso} ISO, {w}x{h}
 </p>
 "#).expect("Can't write to file");
-	if do_s {
-	    let status = std::process::Command::new("/usr/bin/convert")
-		.args([
-                    "-resize",
-                    "800x800",
-                    &path,
-                    &s_small,
-		])
-		.status()
-		.expect("failed to execute process convert");
-            if !status.success() {
-		eprintln!("process convert finished with status {} for file {:?}",status,p);
-		return;
-	    }
-	}
-	if do_m {
-	    let status = std::process::Command::new("/usr/bin/convert")
-		.args([
-                    "-resize",
-                    "3000x3000",
-                    &path,
-                    &s_medium,
-		])
-		.status()
-		.expect("failed to execute process convert");
-            if !status.success() {
-		eprintln!("process convert finished with status {} for file {:?}",status,p);
-		return;
-	    }
+
+
+    
+    if do_s {
+	let status = std::process::Command::new("/usr/bin/convert")
+	    .args([
+                "-resize",
+                "800x800",
+                &path,
+                &s_small,
+	    ])
+	    .status()
+	    .expect("failed to execute process convert");
+        if !status.success() {
+	    eprintln!("process convert finished with status {} for file {:?}",status,p);
+	    return;
 	}
     }
-    else {
-	eprintln!("Error : no lat/lon for {path}");
+    if do_m {
+	let status = std::process::Command::new("/usr/bin/convert")
+	    .args([
+                "-resize",
+                "3000x3000",
+                &path,
+                &s_medium,
+	    ])
+	    .status()
+	    .expect("failed to execute process convert");
+        if !status.success() {
+	    eprintln!("process convert finished with status {} for file {:?}",status,p);
+	    return;
+	}
     }
 }
+
 
 
 use std::fs::File;
