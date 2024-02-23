@@ -370,17 +370,11 @@ use std::fs;
 
 fn print_french_header(name:&str,mut fp: &std::fs::File) {
     write!(fp,
-r#"<?xml version="1.0" encoding="iso-8859-1" ?>
-
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-
-
-
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="fr" lang="fr">
-
-
+r#"<!DOCTYPE html>
+<html lang="fr">
 <head>
+<meta charset="utf-8">
+
 <title>
 {name}
 </title>
@@ -409,17 +403,10 @@ Toutes les images sont copyrightees (voir le bas de page) et marquees par stegan
 
 fn print_english_header(name:&str,mut fp: &std::fs::File) {
     write!(fp,
-r#"<?xml version="1.0" encoding="iso-8859-1" ?>
-
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-
-
-
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
-
-
+r#"<!DOCTYPE html>
+<html lang="en">
 <head>
+<meta charset="utf-8">
 <title>
 {name}
 </title>
@@ -450,8 +437,6 @@ fn print_french_footer(mut fp: &std::fs::File) {
     write!(fp,
 r#"
 <!--#include virtual="/footer.shtml.fr" -->
-<!-- Local Variables: -->
-<!-- coding: latin-1 -->
 </body>
 </html>
 "#).expect("Can't write french footer");    
@@ -461,8 +446,6 @@ fn print_english_footer(mut fp: &std::fs::File) {
     write!(fp,
 r#"
 <!--#include virtual="/footer.shtml.en" -->
-<!-- Local Variables: -->
-<!-- coding: latin-1 -->
 </body>
 </html>
 "#).expect("Can't write english footer");    
