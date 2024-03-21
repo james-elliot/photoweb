@@ -222,7 +222,7 @@ fn dist(lat1: f64, lon1: f64, lat2: f64, lon2: f64) -> f64 {
 
 use image::image_dimensions as image_dimensions;
 fn one(p: &std::path::Path, tab: &[City], tabloc: &Option<Vec<Loc>>, ext: &str,do_s:bool,
-       do_m:bool,mut fp1: &std::fs::File,mut fp2: &std::fs::File,cam:&String,vlens: &Vec<&str>,
+       do_m:bool,mut fp1: &std::fs::File,cam:&String,vlens: &Vec<&str>,
        output_dirs:&str,output_dirm:&str) {
     let _p1 = p.file_stem().and_then(std::ffi::OsStr::to_str);
     let p2 = p.extension().and_then(std::ffi::OsStr::to_str);
@@ -284,52 +284,18 @@ lat={lat:.6}, lon={lon:.6}
 	},
 	None => {}
     };
-    
+
    write!(fp1,
 r#"{cam}, {lens}, {fnum}, {exp}, {flen}"#).expect("Can't write to file");
     if !eqlen.is_empty() {
 	write!(fp1," (35mm equ: {eqlen})").expect("Can't write to file");
     }
-    
+
     write!(fp1,
 r#", {iso} ISO, {w}x{h}
 </p>
 "#).expect("Can't write to file");
 
-    write!(fp2,
-r#"<p class="center">
-<a href="{s_medium}" target="_blank">
-<img src="{s_small}" alt="" />
-</a>
-<br/>
-{lab}
-"#).expect("Can't write to file");
-
-    match latlon {
-	Some((lat,lon)) => {
-	    write!(fp2,
-r#"<a href="{g}" target="_blank">
-lat={lat:.6}, lon={lon:.6}
-</a>
-<br/>
-"#) .expect("Can't write to file");
-	},
-	None => {}
-    };
-    
-   write!(fp2,
-r#"{cam}, {lens}, {fnum}, {exp}, {flen}"#).expect("Can't write to file");
-    if !eqlen.is_empty() {
-	write!(fp2," (35mm equ: {eqlen})").expect("Can't write to file");
-    }
-    
-    write!(fp2,
-r#", {iso} ISO, {w}x{h}
-</p>
-"#).expect("Can't write to file");
-
-
-    
     if do_s {
 	let status = std::process::Command::new("/usr/bin/convert")
 	    .args([
@@ -372,18 +338,34 @@ fn print_french_header(name:&str,mut fp: &std::fs::File) {
     write!(fp,
 r#"<!DOCTYPE html>
 <html lang="fr">
-<head>
-<meta charset="utf-8">
+  <head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" type="text/css" href="mystyle.css" >
+    <link rel="shortcut icon" type="image/x-icon" href="favicon.bmp" >
+    <link rel="stylesheet" href="/Temml/assets/Temml-Local.css">
+    <link rel="stylesheet" href="/Temml/assets/Temml-Latin-Modern.css">
+    <script src="/Temml/assets/temml.min.js"></script>
+    <script src="/Temml/assets/auto-render.min.js"></script>
 
-<title>
-{name}
-</title>
-<link rel="stylesheet" type="text/css" href="/mystyle.css" />
-</head>
+    <title>Photo-lovers
+    </title>
+    <meta name="Category" content="Photographie" >
+    <meta name="Description" content="Tout sur la photographie numérique" >
+    <meta name="Author" content="Jean-Marc Alliot" >
+    <meta name="Keywords" content="Photographie,Numérique" >
+  </head>
 
 
-<body>
-<!--#include virtual="/header.shtml.fr" -->
+  <body>
+
+    <nav class="sidenav">
+      <iframe class="sidenav" src="toc.html">
+      </iframe>
+    </nav>
+
+
+    <div class="main">
+      <!--#include virtual="/header.shtml" -->
 
 <h1>
 {name}
@@ -401,55 +383,20 @@ Toutes les images sont copyrightees (voir le bas de page) et marquees par stegan
     }
 }
 
-fn print_english_header(name:&str,mut fp: &std::fs::File) {
-    write!(fp,
-r#"<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>
-{name}
-</title>
-<link rel="stylesheet" type="text/css" href="/mystyle.css" />
-</head>
-
-
-<body>
-<!--#include virtual="/header.shtml.en" -->
-
-<h1>
-{name}
-</h1>
-<p>
-Clicking on an image opens it in 3000x2000 in another tab.
-<br/>
-All images are copyrighted (see footer) and steganographically watermarked.
-</p>
-"#).expect("Can't write english header");
-/* notes-en.txt must be in ISO-8859-1 format, so no way to read it as a string */
-    match fs::read("notes-en.txt") {
-	Ok(bytes) => fp.write_all(&bytes).expect("Can't write english notes"),
-	Err(e) => println!("error reading english notes: {e:?}"),
-    }
-}
 
 fn print_french_footer(mut fp: &std::fs::File) {
     write!(fp,
 r#"
-<!--#include virtual="/footer.shtml.fr" -->
-</body>
+       <!--#include virtual="/footer.shtml" -->
+    </div>
+
+
+  </body>
 </html>
+
 "#).expect("Can't write french footer");    
 }
 
-fn print_english_footer(mut fp: &std::fs::File) {
-    write!(fp,
-r#"
-<!--#include virtual="/footer.shtml.en" -->
-</body>
-</html>
-"#).expect("Can't write english footer");    
-}
 
 use regex::Regex;
 use argparse::{ArgumentParser, StoreTrue,Store};
@@ -502,10 +449,8 @@ fn main() {
     let vlens: Vec<&str> = lens.split(',').collect();
     let tab = read_cities(&cities);
     let tabloc = if  do_g {let v = read_locs(&locs); Some(v)} else {None};
-    let output_fr = File::create("index.shtml.fr").expect("Can't open index.shtml.fr");
-    let output_en = File::create("index.shtml.en").expect("Can't open index.shtml.en");
+    let output_fr = File::create("index.shtml").expect("Can't open index.shtml");
     print_french_header(&name,&output_fr);
-    print_english_header(&name,&output_en);
     for entry in walkdir::WalkDir::new(".")
 	.max_depth(1)
     //	.sort_by(|a,b| a.file_name().cmp(b.file_name()))
@@ -514,10 +459,9 @@ fn main() {
         .filter_map(|e| e.ok())
     {
         eprintln!("{}", entry.path().display());
-        one(entry.path(), &tab, &tabloc, "jpg",do_s,do_m,&output_fr,&output_en,&cam,&vlens,&output_dirs,&output_dirm);
+        one(entry.path(), &tab, &tabloc, "jpg",do_s,do_m,&output_fr,&cam,&vlens,&output_dirs,&output_dirm);
     }
     print_french_footer(&output_fr);
-    print_english_footer(&output_en);
 /*
     let path = "toto.jpg";
     let p = std::path::Path::new(path);
