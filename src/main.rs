@@ -99,7 +99,7 @@ fn get_latlon(path: &str,cam:&String,vlens:&Vec<&str>)
     for f in exif.fields() {
 //	eprintln!("tag={} ifd_nm={} value={} description={:?}", f.tag, f.ifd_num, f.display_value(),f.tag.description());
         if let Some(t) = f.tag.description() {
-//            		eprintln!("{:?} {}",t,f.display_value().with_unit(&exif).to_string());
+//            eprintln!("{:?} {}",t,f.display_value().with_unit(&exif).to_string());
             if t.eq("Latitude") {
                 let s = f.display_value().with_unit(&exif).to_string();
                 let v: Vec<&str> = s.split(' ').collect();
@@ -148,7 +148,7 @@ fn get_latlon(path: &str,cam:&String,vlens:&Vec<&str>)
 		eqlen=f.display_value().with_unit(&exif).to_string();
             }
 	    
-            if t.eq("Lens model") {
+            if lens.is_empty() &&(t.eq("Lens model") || t.eq("Lens Model")) {
                 lens = f.display_value().with_unit(&exif).to_string();
 		if lens.len()>2 {
 		    lens.pop();lens.remove(0);
@@ -340,12 +340,8 @@ r#"<!DOCTYPE html>
 <html lang="fr">
   <head>
     <meta charset="utf-8">
-    <link rel="stylesheet" type="text/css" href="mystyle.css" >
-    <link rel="shortcut icon" type="image/x-icon" href="favicon.bmp" >
-    <link rel="stylesheet" href="/Temml/assets/Temml-Local.css">
-    <link rel="stylesheet" href="/Temml/assets/Temml-Latin-Modern.css">
-    <script src="/Temml/assets/temml.min.js"></script>
-    <script src="/Temml/assets/auto-render.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="/mystyle.css" >
+    <link rel="shortcut icon" type="image/x-icon" href="/favicon.bmp" >
 
     <title>Photo-lovers
     </title>
@@ -359,7 +355,7 @@ r#"<!DOCTYPE html>
   <body>
 
     <nav class="sidenav">
-      <iframe class="sidenav" src="toc.html">
+      <iframe class="sidenav" src="/toc.html">
       </iframe>
     </nav>
 
@@ -376,7 +372,6 @@ En cliquant sur une image, elle s'ouvrira dans un autre onglet en 3000x2000.
 Toutes les images sont copyrightees (voir le bas de page) et marquees par steganographie.
 </p>
 "#).expect("Can't write french header");
-/* notes-fr.txt must be in ISO-8859-1 format, so no way to read it as a string */
     match fs::read("notes-fr.txt") {
 	Ok(bytes) => fp.write_all(&bytes).expect("Can't write french notes"),
 	Err(e) => println!("error reading french notes: {e:?}"),
