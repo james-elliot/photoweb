@@ -26,6 +26,7 @@ struct LocCsv {
 #[derive(Debug)]
 struct Loc {
     location: String,
+    ccode : String,
     _timezone: String,
     lat: f64,
     lon: f64,
@@ -34,55 +35,32 @@ struct Loc {
 fn read_locs(file_path: &str) -> Vec<Loc> {
     let mut tab = Vec::new();
     let file = std::fs::File::open(file_path).unwrap();
-    let mut rdr = csv::ReaderBuilder::new().delimiter(b'\t').from_reader(file);
+    let mut rdr = csv::ReaderBuilder::new()
+        .delimiter(b'\t')
+        .comment(Some(b'#'))
+        .has_headers(false)
+        .from_reader(file);
     for result in rdr.deserialize::<LocCsv>() {
         let r = result.unwrap();
+//        eprintln!("{:?}",r);
         let lat = r.latitude;
         let lon = r.longitude;
-        tab.push(Loc {
-            location: r.asciiname,
-            _timezone: r.timezone,
-            lat,
-            lon,
-        });
+        let pop = match r.population {
+            Some (n) =>n,
+            None => 0};
+        if pop>1000 {
+            tab.push(Loc {
+                location: r.asciiname,
+                _timezone: r.timezone,
+                ccode: r.country_code,
+                lat,
+                lon,
+            });
+        }
     }
     tab
 }
 
-#[derive(Debug, serde::Deserialize)]
-#[allow(non_snake_case)]
-struct CityCsv {
-    ASCII_Name: String,
-    Country_name: String,
-    Coordinates: String,
-}
-
-#[derive(Debug)]
-struct City {
-    city: String,
-    country: String,
-    lat: f64,
-    lon: f64,
-}
-
-fn read_cities(file_path: &str) -> Vec<City> {
-    let mut tab = Vec::new();
-    let file = std::fs::File::open(file_path).unwrap();
-    let mut rdr = csv::ReaderBuilder::new().delimiter(b';').from_reader(file);
-    for result in rdr.deserialize::<CityCsv>() {
-        let r = result.unwrap();
-        let v: Vec<&str> = r.Coordinates.split(',').collect();
-        let lat = v[0].parse::<f64>().unwrap();
-        let lon = v[1].parse::<f64>().unwrap();
-        tab.push(City {
-            city: r.ASCII_Name,
-            country: r.Country_name,
-            lat,
-            lon,
-        });
-    }
-    tab
-}
 // https://www.google.com/maps/place/1%C2%B021'29.0%22N+103%C2%B059'14.0%22E
 fn get_latlon(path: &str,cam:&String,vlens:&Vec<&str>)
               -> (Option<(f64, f64)>, String,String,String,String,String,String,String,String,String) {
@@ -147,7 +125,6 @@ fn get_latlon(path: &str,cam:&String,vlens:&Vec<&str>)
             if t.eq("Focal length in 35 mm film") {
 		eqlen=f.display_value().with_unit(&exif).to_string();
             }
-	    
             if lens.is_empty() &&(t.eq("Lens model") || t.eq("Lens Model")) {
                 lens = f.display_value().with_unit(&exif).to_string();
 		if lens.len()>2 {
@@ -172,20 +149,6 @@ fn get_latlon(path: &str,cam:&String,vlens:&Vec<&str>)
 	    _ => {
 		let re = Regex::new(r"(?<low>[0-9]*)[ ]*-[ ]*(?<high>[0-9]*)").unwrap();
 		for hay in vlens {
-		    /*
-		    match re.captures(hay) {
-			Some(caps) => {
-			    let low: i32 = caps["low"].parse().unwrap();
-			    let high: i32 = caps["high"].parse().unwrap();
-			    println!("{} {}",low,high);
-			    if (fl_num>=low) && (fl_num<=high) {
-				lens=hay.to_string();
-				break;
-			    }
-			},
-			None => {}
-		    }
-		     */
 		    if let Some(caps) = re.captures(hay) {
 			let low: i32 = caps["low"].parse().unwrap();
 			let high: i32 = caps["high"].parse().unwrap();
@@ -195,7 +158,6 @@ fn get_latlon(path: &str,cam:&String,vlens:&Vec<&str>)
 			    break;
 			}
                     }
-		    
 		}
 	    }
 	}
@@ -221,9 +183,8 @@ fn dist(lat1: f64, lon1: f64, lat2: f64, lon2: f64) -> f64 {
 }
 
 use image::image_dimensions as image_dimensions;
-fn one(p: &std::path::Path, tab: &[City], tabloc: &Option<Vec<Loc>>, ext: &str,do_s:bool,
-       do_m:bool,mut fp1: &std::fs::File,cam:&String,vlens: &Vec<&str>,
-       output_dirs:&str,output_dirm:&str) {
+fn one(p: &std::path::Path, tabloc: &[Loc], ext: &str,
+       mut fp1: &std::fs::File,cam:&String,vlens: &Vec<&str>) {
     let _p1 = p.file_stem().and_then(std::ffi::OsStr::to_str);
     let p2 = p.extension().and_then(std::ffi::OsStr::to_str);
     match p2 {
@@ -243,16 +204,11 @@ fn one(p: &std::path::Path, tab: &[City], tabloc: &Option<Vec<Loc>>, ext: &str,d
     let (latlon, date,g,cam,exp,fnum,flen,lens,iso,eqlen) = get_latlon(path,cam,vlens);
     let sloc = match latlon {
 	Some((lat,lon)) => {
-	    let r = tab
-		.iter()
+	    let r =
+                tabloc.iter()
 		.min_by_key(|x| dist(lat, lon, x.lat, x.lon) as i64)
 		.unwrap();
-	    let rloc = tabloc.as_ref().map(|s|
-					   s.iter()
-					   .min_by_key(|x| dist(lat, lon, x.lat, x.lon) as i64)
-					   .unwrap());
-	    let rloc = rloc.map_or("".to_string(),|s| s.location.to_string()+", ");
-	    rloc + &r.city + ", " + &r.country
+	    r.location.clone() + ", " + &r.ccode
 	},
 	None => {
 	    "".to_string()
@@ -260,10 +216,10 @@ fn one(p: &std::path::Path, tab: &[City], tabloc: &Option<Vec<Loc>>, ext: &str,d
     };
     let v: Vec<&str> = date.split(' ').collect();
     let lab = v[0].to_owned() + ", " + v[1] + ", " + &sloc;
-    let s_small = output_dirs.to_owned() + "/" + path;
-    let s_medium = output_dirm.to_owned() + "/" + path;
     let (w,h)=image_dimensions(path).expect("Can't get image dimensions");
-    
+    let s_medium = "medium/".to_owned()+path;
+    let s_small = "small/".to_owned()+path;
+
     write!(fp1,
 r#"<p class="center">
 <a href="{s_medium}" target="_blank">
@@ -295,37 +251,6 @@ r#"{cam}, {lens}, {fnum}, {exp}, {flen}"#).expect("Can't write to file");
 r#", {iso} ISO, {w}x{h}
 </p>
 "#).expect("Can't write to file");
-
-    if do_s {
-	let status = std::process::Command::new("/usr/bin/convert")
-	    .args([
-                "-resize",
-                "800x800",
-                &path,
-                &s_small,
-	    ])
-	    .status()
-	    .expect("failed to execute process convert");
-        if !status.success() {
-	    eprintln!("process convert finished with status {} for file {:?}",status,p);
-	    return;
-	}
-    }
-    if do_m {
-	let status = std::process::Command::new("/usr/bin/convert")
-	    .args([
-                "-resize",
-                "3000x3000",
-                &path,
-                &s_medium,
-	    ])
-	    .status()
-	    .expect("failed to execute process convert");
-        if !status.success() {
-	    eprintln!("process convert finished with status {} for file {:?}",status,p);
-	    return;
-	}
-    }
 }
 
 
@@ -394,56 +319,31 @@ r#"
 
 
 use regex::Regex;
-use argparse::{ArgumentParser, StoreTrue,Store};
+use argparse::{ArgumentParser, Store};
 fn main() {
-    let mut do_s = false;
-    let mut do_m = false;
     let mut name = "".to_string();
     let mut cam = "".to_string();
     let mut lens = "".to_string();
-    let mut cities = "./cities.csv".to_string();
-    let mut do_g = false;
     let mut locs = "./locs.csv".to_string();
-    let mut output_dirs = "./small".to_string();
-    let mut output_dirm = "./medium".to_string();
     { // this block limits scope of borrows by ap.refer() method
         let mut ap = ArgumentParser::new();
         ap.set_description("Build web pages to display a collection of photographs");
-	ap.refer(&mut do_g)
-            .add_option(&["-g","--geonames"], StoreTrue,
-			"Use also full geonames file");
         ap.refer(&mut locs)
-            .add_option(&["-G","--geonamesfile"], Store,
+            .add_option(&["-g","--geonamesfile"], Store,
 			"Name of geonames file (default ./locs.csv)");
 	ap.refer(&mut cam)
-            .add_option(&["-C","--camera"], Store,
+            .add_option(&["-c","--camera"], Store,
                         "Name of camera");
 	ap.refer(&mut lens)
-            .add_option(&["-L","--lens"], Store,
+            .add_option(&["-l","--lens"], Store,
                         "Name of lens(es) separated by commas");
 	ap.refer(&mut name)
             .add_option(&["-t","--title"], Store,
                         "Title of the web page");
-	ap.refer(&mut cities)
-            .add_option(&["-c","--cities"], Store,
-			"Path of file holding cities names (default ./cities.csv)");
-	ap.refer(&mut do_s)
-            .add_option(&["-s","--small"], StoreTrue,
-			"Also create images of 800x800 size");
-	ap.refer(&mut output_dirs)
-            .add_option(&["-S","--smalldir"], Store,
-			"Name of output directory for 800x800 images (default ./small)");
-	ap.refer(&mut do_m)
-            .add_option(&["-m","--medium"], StoreTrue,
-			"Also create images of 3000x3000 size");
-	ap.refer(&mut output_dirm)
-            .add_option(&["-M","--mediumdir"], Store,
-			"Name of output directory for 3000x3000 images (default ./medium)");
         ap.parse_args_or_exit();
     }
     let vlens: Vec<&str> = lens.split(',').collect();
-    let tab = read_cities(&cities);
-    let tabloc = if  do_g {let v = read_locs(&locs); Some(v)} else {None};
+    let tabloc = read_locs(&locs); 
     let output_fr = File::create("index.shtml").expect("Can't open index.shtml");
     print_french_header(&name,&output_fr);
     for entry in walkdir::WalkDir::new(".")
@@ -454,7 +354,7 @@ fn main() {
         .filter_map(|e| e.ok())
     {
         eprintln!("{}", entry.path().display());
-        one(entry.path(), &tab, &tabloc, "jpg",do_s,do_m,&output_fr,&cam,&vlens,&output_dirs,&output_dirm);
+        one(entry.path(), &tabloc, "jpg",&output_fr,&cam,&vlens);
     }
     print_french_footer(&output_fr);
 /*
