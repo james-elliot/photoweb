@@ -2,7 +2,7 @@
 
 Creates a web page for a set of photos in a directory, automatically extracting information about location, camera, dates and lenses.
 
-The program extracts latitude and longitude, so you need locations informations. These files can be directly downloaded from Geonames. You need the [allCountries.txt](https://download.geonames.org/export/dump/allCountries.zip) file and the [countryInfo.txt](https://download.geonames.org/export/dump/countryInfo.txt) file
+The program extracts latitude and longitude, so you need files containing correspondence from lat/lon to location informations. These files can be directly downloaded from Geonames. You need the [allCountries.txt](https://download.geonames.org/export/dump/allCountries.zip) file and the [countryInfo.txt](https://download.geonames.org/export/dump/countryInfo.txt) file
 
 Informations set in the command line take precedence over informations extracted.
 
