@@ -23,18 +23,59 @@ struct LocCsv {
     modification_date : String // date of last modification in yyyy-MM-dd format
 }
 
-#[derive(Debug)]
-struct Loc {
-    location: String,
-    ccode : String,
-    _timezone: String,
-    lat: f64,
-    lon: f64,
+#[derive(Debug, serde::Deserialize)]
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+struct CountryCsv {
+    ISO               : String,
+    ISO3              : String,
+    ISO_Numeric       : String,
+    fips              : String,
+    Country           : String,
+    Capital           : String,
+    Area              : f64,
+    Population        : u64,
+    Continent         : String,
+    tld               : String,
+    CurrencyCode      : String,
+    CurrencyName      : String,
+    Phone             : String,
+    Postal_Code_Format: String,
+    Postal_Code_Regex : String,
+    Languages         : String,
+    geonameid         : u64,
+    neighbours        : String,
+    EquivalentFipsCode: String
 }
 
-fn read_locs(file_path: &str) -> Vec<Loc> {
+#[derive(Debug)]
+struct Loc {
+    location : String,
+    country  : String,
+    _timezone: String,
+    lat      : f64,
+    lon      : f64,
+}
+
+
+use std::collections::HashMap;
+fn read_locs(path_geo: &str,path_countries: &str) -> Vec<Loc> {
+//    let mut countries =  Vec::new();
+    let mut codesmap = HashMap::new();
+    let file = std::fs::File::open(path_countries).unwrap();
+    let mut rdr = csv::ReaderBuilder::new()
+        .delimiter(b'\t')
+        .comment(Some(b'#'))
+        .has_headers(false)
+        .from_reader(file);
+    for result in rdr.deserialize::<CountryCsv>() {
+        let r = result.unwrap();
+	codesmap.insert(r.ISO.clone(),r.Country.clone());
+//	eprintln!("{:?}",r);
+    }
+    
     let mut tab = Vec::new();
-    let file = std::fs::File::open(file_path).unwrap();
+    let file = std::fs::File::open(path_geo).unwrap();
     let mut rdr = csv::ReaderBuilder::new()
         .delimiter(b'\t')
         .comment(Some(b'#'))
@@ -48,11 +89,14 @@ fn read_locs(file_path: &str) -> Vec<Loc> {
         let pop = match r.population {
             Some (n) =>n,
             None => 0};
+	let country = match codesmap.get(&r.country_code) {
+	    None => "",
+	    Some(s) => s};
         if pop>1000 {
             tab.push(Loc {
                 location: r.asciiname,
                 _timezone: r.timezone,
-                ccode: r.country_code,
+		country: country.to_string(),
                 lat,
                 lon,
             });
@@ -184,7 +228,8 @@ fn dist(lat1: f64, lon1: f64, lat2: f64, lon2: f64) -> f64 {
 
 use image::image_dimensions as image_dimensions;
 fn one(p: &std::path::Path, tabloc: &[Loc], ext: &str,
-       mut fp1: &std::fs::File,cam:&String,vlens: &Vec<&str>) {
+       mut fp1: &std::fs::File,
+       cam:&String,vlens: &Vec<&str>,locname:&String) {
     let _p1 = p.file_stem().and_then(std::ffi::OsStr::to_str);
     let p2 = p.extension().and_then(std::ffi::OsStr::to_str);
     match p2 {
@@ -202,18 +247,22 @@ fn one(p: &std::path::Path, tabloc: &[Loc], ext: &str,
     }
     let path = p.to_str().unwrap();
     let (latlon, date,g,cam,exp,fnum,flen,lens,iso,eqlen) = get_latlon(path,cam,vlens);
-    let sloc = match latlon {
-	Some((lat,lon)) => {
-	    let r =
-                tabloc.iter()
-		.min_by_key(|x| dist(lat, lon, x.lat, x.lon) as i64)
-		.unwrap();
-	    r.location.clone() + ", " + &r.ccode
-	},
-	None => {
-	    "".to_string()
+    let sloc =
+	if locname=="" {
+	    match latlon {
+		Some((lat,lon)) => {
+		    let r =
+			tabloc.iter()
+			.min_by_key(|x| dist(lat, lon, x.lat, x.lon) as i64)
+			.unwrap();
+		    r.location.clone() + ", " + &r.country
+		},
+		None => {
+		    "".to_string()
+		}
+	    }
 	}
-    };
+    else {locname.to_string()};
     let v: Vec<&str> = date.split(' ').collect();
     let lab = v[0].to_owned() + ", " + v[1] + ", " + &sloc;
     let (w,h)=image_dimensions(path).expect("Can't get image dimensions");
@@ -324,13 +373,18 @@ fn main() {
     let mut name = "".to_string();
     let mut cam = "".to_string();
     let mut lens = "".to_string();
-    let mut locs = "./locs.csv".to_string();
+    let mut locname = "".to_string();
+    let mut locs = "./allCountries.txt".to_string();
+    let mut countries = "./countryInfo.txt".to_string();
     { // this block limits scope of borrows by ap.refer() method
         let mut ap = ArgumentParser::new();
         ap.set_description("Build web pages to display a collection of photographs");
         ap.refer(&mut locs)
             .add_option(&["-g","--geonamesfile"], Store,
-			"Name of geonames file (default ./locs.csv)");
+			"Name of geonames file (default ./allCountries.txt)");
+        ap.refer(&mut countries)
+            .add_option(&["-C","--countryinfo"], Store,
+			"Name of country_info file (default ./countryInfo.txt)");
 	ap.refer(&mut cam)
             .add_option(&["-c","--camera"], Store,
                         "Name of camera");
@@ -340,10 +394,13 @@ fn main() {
 	ap.refer(&mut name)
             .add_option(&["-t","--title"], Store,
                         "Title of the web page");
+	ap.refer(&mut locname)
+            .add_option(&["-l","--location"], Store,
+                        "Location name");
         ap.parse_args_or_exit();
     }
     let vlens: Vec<&str> = lens.split(',').collect();
-    let tabloc = read_locs(&locs); 
+    let tabloc = read_locs(&locs,&countries); 
     let output_fr = File::create("index.shtml").expect("Can't open index.shtml");
     print_french_header(&name,&output_fr);
     for entry in walkdir::WalkDir::new(".")
@@ -354,7 +411,7 @@ fn main() {
         .filter_map(|e| e.ok())
     {
         eprintln!("{}", entry.path().display());
-        one(entry.path(), &tabloc, "jpg",&output_fr,&cam,&vlens);
+        one(entry.path(), &tabloc, "jpg",&output_fr,&cam,&vlens,&locname);
     }
     print_french_footer(&output_fr);
 /*
