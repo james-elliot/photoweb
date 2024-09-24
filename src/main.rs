@@ -379,10 +379,14 @@ fn main() {
     let mut locs = "./allCountries.txt".to_string();
     let mut countries = "./countryInfo.txt".to_string();
     let mut notes = "".to_string();
+    let mut ext = "jpg".to_string();
     let mut popref:i64 = 1000;
     { // this block limits scope of borrows by ap.refer() method
         let mut ap = ArgumentParser::new();
         ap.set_description("Build web pages to display a collection of photographs");
+        ap.refer(&mut ext)
+            .add_option(&["-e","--extension"], Store,
+			"Extension of files to process (default jpg)");
         ap.refer(&mut notes)
             .add_option(&["-n","--notes"], Store,
 			"Name of a file containing notes to add at the start of the webpage");
@@ -421,7 +425,7 @@ fn main() {
         .filter_map(|e| e.ok())
     {
 //        eprintln!("{}", entry.path().display());
-        one(entry.path(), &tabloc, "jpg",&output_fr,&cam,&vlens,&locname);
+        one(entry.path(), &tabloc, &ext, &output_fr, &cam, &vlens, &locname);
     }
     print_footer(&output_fr);
 /*

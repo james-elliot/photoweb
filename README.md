@@ -12,6 +12,8 @@ Locations informations files can be directly downloaded from Geonames. You need 
 
     Optional arguments:
       -h,--help             Show this help message and exit
+	  -e,--extension EXTENSION
+                            Extension of files to process (default jpg)
       -n,--notes NOTES      Name of a file containing notes to add at the start of the webpage
       -p,--population POPULATION
                             Minimal number of inhabitants by location (default 1000)
