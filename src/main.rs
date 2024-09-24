@@ -85,15 +85,14 @@ fn read_locs(path_geo: &str,path_countries: &str,popref:i64) -> Vec<Loc> {
 //        eprintln!("{:?}",r);
         let lat = r.latitude;
         let lon = r.longitude;
-        let pop = match r.population {
-            Some (n) =>n,
-            None => 0};
+        let pop = r.population.unwrap_or(0);
 	let country = match codesmap.get(&r.country_code) {
 	    None => "",
 	    Some(s) => s};
         if pop>=popref {
             tab.push(Loc {
-                location: r.asciiname,
+//                location: r.asciiname,
+		location: r.name,
 		country: country.to_string(),
                 lat,
                 lon,
@@ -207,7 +206,7 @@ fn get_latlon(path: &str,cam:&String,vlens:&Vec<&str>)
     if lat == 0. {
         return (None,s,g,cam,exp,fnum,flen,lens,iso,eqlen)
     };
-    return (Some ((lat,lon)),s,g,cam,exp,fnum,flen,lens,iso,eqlen)
+    (Some ((lat,lon)),s,g,cam,exp,fnum,flen,lens,iso,eqlen)
 }
 
 fn deg2rad(deg: f64) -> f64 {
@@ -246,7 +245,7 @@ fn one(p: &std::path::Path, tabloc: &[Loc], ext: &str,
     let path = p.to_str().unwrap();
     let (latlon, date,g,cam,exp,fnum,flen,lens,iso,eqlen) = get_latlon(path,cam,vlens);
     let sloc =
-	if locname=="" {
+	if locname.is_empty() {
 	    match latlon {
 		Some((lat,lon)) => {
 		    let r =
@@ -285,7 +284,10 @@ lat={lat:.6}, lon={lon:.6}
 <br/>
 "#) .expect("Can't write to file");
 	},
-	None => {}
+	None => {
+	    writeln!(fp1,"<br/>")
+		.expect("Can't write to file");
+	}
     };
 
    write!(fp1,
@@ -344,7 +346,7 @@ En cliquant sur une image, elle s'ouvrira dans un autre onglet en 3000x2000.
 Toutes les images sont copyrightees (voir le bas de page) et marquees par steganographie.
 </p>
 "#).expect("Can't write header");
-    if path!="" {
+    if !path.is_empty() {
 	match fs::read(path) {
 	    Ok(bytes) => fp.write_all(&bytes).expect("Can't write notes"),
 	    Err(e) => println!("notes file not present, so not including it: {e:?}"),
