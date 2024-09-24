@@ -59,7 +59,7 @@ struct Loc {
 
 
 use std::collections::HashMap;
-fn read_locs(path_geo: &str,path_countries: &str) -> Vec<Loc> {
+fn read_locs(path_geo: &str,path_countries: &str,popref:i64) -> Vec<Loc> {
 //    let mut countries =  Vec::new();
     let mut codesmap = HashMap::new();
     let file = std::fs::File::open(path_countries).unwrap();
@@ -92,7 +92,7 @@ fn read_locs(path_geo: &str,path_countries: &str) -> Vec<Loc> {
 	let country = match codesmap.get(&r.country_code) {
 	    None => "",
 	    Some(s) => s};
-        if pop>1000 {
+        if pop>=popref {
             tab.push(Loc {
                 location: r.asciiname,
                 _timezone: r.timezone,
@@ -234,13 +234,13 @@ fn one(p: &std::path::Path, tabloc: &[Loc], ext: &str,
     let p2 = p.extension().and_then(std::ffi::OsStr::to_str);
     match p2 {
         None => {
-            eprintln!("No extension: {:?}",p);
+//            eprintln!("No extension: {:?}",p);
             return
         },
         Some(s) => {
             let s2 = s.to_ascii_lowercase();
             if !s2.eq(ext) {
-                eprintln!("Bad name? {:?} {} {}",p,s2,ext);
+//                eprintln!("Bad name? {:?} {} {}",p,s2,ext);
                 return;
             }
         }
@@ -308,7 +308,7 @@ use std::fs::File;
 use std::io::Write;
 use std::fs;
 
-fn print_french_header(name:&str,mut fp: &std::fs::File) {
+fn print_header(name:&str,mut fp: &std::fs::File,path:&str) {
     write!(fp,
 r#"<!DOCTYPE html>
 <html lang="fr">
@@ -345,15 +345,17 @@ En cliquant sur une image, elle s'ouvrira dans un autre onglet en 3000x2000.
 <br/>
 Toutes les images sont copyrightees (voir le bas de page) et marquees par steganographie.
 </p>
-"#).expect("Can't write french header");
-    match fs::read("notes-fr.txt") {
-	Ok(bytes) => fp.write_all(&bytes).expect("Can't write french notes"),
-	Err(e) => println!("error reading french notes: {e:?}"),
+"#).expect("Can't write header");
+    if path!="" {
+	match fs::read(path) {
+	    Ok(bytes) => fp.write_all(&bytes).expect("Can't write notes"),
+	    Err(e) => println!("notes file not present, so not including it: {e:?}"),
+	}
     }
 }
 
 
-fn print_french_footer(mut fp: &std::fs::File) {
+fn print_footer(mut fp: &std::fs::File) {
     write!(fp,
 r#"
        <!--#include virtual="/footer.shtml" -->
@@ -363,7 +365,7 @@ r#"
   </body>
 </html>
 
-"#).expect("Can't write french footer");    
+"#).expect("Can't write footer");    
 }
 
 
@@ -376,9 +378,17 @@ fn main() {
     let mut locname = "".to_string();
     let mut locs = "./allCountries.txt".to_string();
     let mut countries = "./countryInfo.txt".to_string();
+    let mut notes = "".to_string();
+    let mut popref:i64 = 1000;
     { // this block limits scope of borrows by ap.refer() method
         let mut ap = ArgumentParser::new();
         ap.set_description("Build web pages to display a collection of photographs");
+        ap.refer(&mut notes)
+            .add_option(&["-n","--notes"], Store,
+			"Name of a file containing notes to add at the start of the webpage");
+        ap.refer(&mut popref)
+            .add_option(&["-p","--population"], Store,
+			"Minimal number of inhabitants by location (default 1000)");
         ap.refer(&mut locs)
             .add_option(&["-g","--geonamesfile"], Store,
 			"Name of geonames file (default ./allCountries.txt)");
@@ -400,9 +410,9 @@ fn main() {
         ap.parse_args_or_exit();
     }
     let vlens: Vec<&str> = lens.split(',').collect();
-    let tabloc = read_locs(&locs,&countries); 
+    let tabloc = read_locs(&locs,&countries,popref); 
     let output_fr = File::create("index.shtml").expect("Can't open index.shtml");
-    print_french_header(&name,&output_fr);
+    print_header(&name,&output_fr,&notes);
     for entry in walkdir::WalkDir::new(".")
 	.max_depth(1)
     //	.sort_by(|a,b| a.file_name().cmp(b.file_name()))
@@ -410,10 +420,10 @@ fn main() {
         .into_iter()
         .filter_map(|e| e.ok())
     {
-        eprintln!("{}", entry.path().display());
+//        eprintln!("{}", entry.path().display());
         one(entry.path(), &tabloc, "jpg",&output_fr,&cam,&vlens,&locname);
     }
-    print_french_footer(&output_fr);
+    print_footer(&output_fr);
 /*
     let path = "toto.jpg";
     let p = std::path::Path::new(path);
