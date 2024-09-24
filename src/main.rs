@@ -52,7 +52,6 @@ struct CountryCsv {
 struct Loc {
     location : String,
     country  : String,
-    _timezone: String,
     lat      : f64,
     lon      : f64,
 }
@@ -95,7 +94,6 @@ fn read_locs(path_geo: &str,path_countries: &str,popref:i64) -> Vec<Loc> {
         if pop>=popref {
             tab.push(Loc {
                 location: r.asciiname,
-                _timezone: r.timezone,
 		country: country.to_string(),
                 lat,
                 lon,
@@ -384,33 +382,33 @@ fn main() {
     { // this block limits scope of borrows by ap.refer() method
         let mut ap = ArgumentParser::new();
         ap.set_description("Build web pages to display a collection of photographs");
-        ap.refer(&mut ext)
-            .add_option(&["-e","--extension"], Store,
-			"Extension of files to process (default jpg)");
-        ap.refer(&mut notes)
-            .add_option(&["-n","--notes"], Store,
-			"Name of a file containing notes to add at the start of the webpage");
-        ap.refer(&mut popref)
-            .add_option(&["-p","--population"], Store,
-			"Minimal number of inhabitants by location (default 1000)");
-        ap.refer(&mut locs)
-            .add_option(&["-g","--geonamesfile"], Store,
-			"Name of geonames file (default ./allCountries.txt)");
-        ap.refer(&mut countries)
-            .add_option(&["-C","--countryinfo"], Store,
-			"Name of country_info file (default ./countryInfo.txt)");
-	ap.refer(&mut cam)
-            .add_option(&["-c","--camera"], Store,
-                        "Name of camera");
-	ap.refer(&mut lens)
-            .add_option(&["-l","--lens"], Store,
-                        "Name of lens(es) separated by commas");
 	ap.refer(&mut name)
             .add_option(&["-t","--title"], Store,
-                        "Title of the web page");
+                        "Title of the web page (default: None)");
+        ap.refer(&mut ext)
+            .add_option(&["-e","--extension"], Store,
+			"Extension of files to process (default: jpg)");
+        ap.refer(&mut notes)
+            .add_option(&["-n","--notes"], Store,
+			"Name of the file containing notes to add at the start of the webpage (default: None)");
+        ap.refer(&mut popref)
+            .add_option(&["-p","--population"], Store,
+			"Minimal number of inhabitants by location (default: 1000)");
+        ap.refer(&mut locs)
+            .add_option(&["-g","--geonames"], Store,
+			"Name of geonames file (default: ./allCountries.txt)");
+        ap.refer(&mut countries)
+            .add_option(&["-C","--countryinfo"], Store,
+			"Name of country_info file (default: ./countryInfo.txt)");
+	ap.refer(&mut cam)
+            .add_option(&["-c","--camera"], Store,
+                        "Name of camera (default: extracted automatically)");
+	ap.refer(&mut lens)
+            .add_option(&["-l","--lens"], Store,
+                        "Name of lens(es) separated by commas (default: extracted automatically)");
 	ap.refer(&mut locname)
-            .add_option(&["-l","--location"], Store,
-                        "Location name");
+            .add_option(&["-L","--location"], Store,
+                        "Location name (default: extracted automatically)");
         ap.parse_args_or_exit();
     }
     let vlens: Vec<&str> = lens.split(',').collect();
@@ -419,7 +417,6 @@ fn main() {
     print_header(&name,&output_fr,&notes);
     for entry in walkdir::WalkDir::new(".")
 	.max_depth(1)
-    //	.sort_by(|a,b| a.file_name().cmp(b.file_name()))
 	.sort_by_file_name()
         .into_iter()
         .filter_map(|e| e.ok())
@@ -428,9 +425,4 @@ fn main() {
         one(entry.path(), &tabloc, &ext, &output_fr, &cam, &vlens, &locname);
     }
     print_footer(&output_fr);
-/*
-    let path = "toto.jpg";
-    let p = std::path::Path::new(path);
-    one(p,&tab,"jpg");
-*/
 }
