@@ -15,6 +15,8 @@ Informations set in the command line take precedence over informations extracted
     Optional arguments:
       -h,--help             Show this help message and exit
       -t,--title TITLE      Title of the web page (default: None)
+      -d,--directory DIRECTORY
+                            Directory where images are stored (default: . )
       -e,--extension EXTENSION
                             Extension of files to process (default: jpg)
       -n,--notes NOTES      Name of the file containing notes to add at the start
