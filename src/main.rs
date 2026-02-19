@@ -224,7 +224,7 @@ fn dist(lat1: f64, lon1: f64, lat2: f64, lon2: f64) -> f64 {
 }
 
 use image::image_dimensions as image_dimensions;
-fn one(p: &std::path::Path, tabloc: &[Loc], ext: &str,
+fn one(p: &std::path::Path, f:&std::ffi::OsStr, tabloc: &[Loc], ext: &str,
        mut fp1: &std::fs::File,
        cam:&String,vlens: &Vec<&str>,locname:&String) {
     let _p1 = p.file_stem().and_then(std::ffi::OsStr::to_str);
@@ -243,6 +243,7 @@ fn one(p: &std::path::Path, tabloc: &[Loc], ext: &str,
         }
     }
     let path = p.to_str().unwrap();
+    let file_name = f.to_str().unwrap();
     let (latlon, date,g,cam,exp,fnum,flen,lens,iso,eqlen) = get_latlon(path,cam,vlens);
     let sloc =
 	if locname.is_empty() {
@@ -263,8 +264,8 @@ fn one(p: &std::path::Path, tabloc: &[Loc], ext: &str,
     let v: Vec<&str> = date.split(' ').collect();
     let lab = v[0].to_owned() + ", " + v[1] + ", " + &sloc;
     let (w,h)=image_dimensions(path).expect("Can't get image dimensions");
-    let s_medium = "medium/".to_owned()+path;
-    let s_small = "small/".to_owned()+path;
+    let s_medium = "medium/".to_owned()+file_name;
+    let s_small = "small/".to_owned()+file_name;
 
     write!(fp1,
 r#"<p class="center">
@@ -380,6 +381,7 @@ fn main() {
     let mut countries = "./countryInfo.txt".to_string();
     let mut notes = "".to_string();
     let mut ext = "jpg".to_string();
+    let mut dir = ".".to_string();
     let mut popref:i64 = 1000;
     { // this block limits scope of borrows by ap.refer() method
         let mut ap = ArgumentParser::new();
@@ -387,6 +389,9 @@ fn main() {
 	ap.refer(&mut name)
             .add_option(&["-t","--title"], Store,
                         "Title of the web page (default: None)");
+	ap.refer(&mut dir)
+            .add_option(&["-d","--directory"], Store,
+                        "Directory where images are stored (default: . )");
         ap.refer(&mut ext)
             .add_option(&["-e","--extension"], Store,
 			"Extension of files to process (default: jpg)");
@@ -417,14 +422,14 @@ fn main() {
     let tabloc = read_locs(&locs,&countries,popref); 
     let output_fr = File::create("index.shtml").expect("Can't open index.shtml");
     print_header(&name,&output_fr,&notes);
-    for entry in walkdir::WalkDir::new(".")
+    for entry in walkdir::WalkDir::new(dir)
 	.max_depth(1)
 	.sort_by_file_name()
         .into_iter()
         .filter_map(|e| e.ok())
     {
 //        eprintln!("{}", entry.path().display());
-        one(entry.path(), &tabloc, &ext, &output_fr, &cam, &vlens, &locname);
+        one(entry.path(), entry.file_name(),&tabloc, &ext, &output_fr, &cam, &vlens, &locname);
     }
     print_footer(&output_fr);
 }
